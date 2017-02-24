@@ -50,37 +50,37 @@ sub new {
 
 sub genRPC {
     my $str = shift;
-	my $version = shift;
-	my $xml="<rpc semp-version=\"soltr/$version\">##DATA##</rpc>";
+    my $version = shift;
+    my $xml="<rpc semp-version=\"soltr/$version\">##DATA##</rpc>";
     my @words = split ' ', $str;
-	while (my $word = shift @words) {
-		my $tag = "<$word>##DATA##</$word>";
-		if ($word eq "message-vpn") {
-			my $vpnName = shift @words;
-			$tag =~ s/##DATA##/<vpn-name>$vpnName<\/vpn-name>##DATA##/;
-		}
-		$xml =~ s/##DATA##/$tag/;
-	}
-	$xml =~ s/##DATA##//;
-	return $xml;
+    while (my $word = shift @words) {
+        my $tag = "<$word>##DATA##</$word>";
+        if ($word eq "message-vpn") {
+            my $vpnName = shift @words;
+            $tag =~ s/##DATA##/<vpn-name>$vpnName<\/vpn-name>##DATA##/;
+        }
+        $xml =~ s/##DATA##/$tag/;
+    }
+    $xml =~ s/##DATA##//;
+    return $xml;
 }
 
 sub sendRequest {
-	my $self = shift;
-	my $content = shift;
-	my $response = $self->{ua}->post($self->{schema}."://".$self->{host}.":".$self->{port}."/SEMP", 
-	            Authorization => 'Basic '.$self->{basic}, 
-	            'Content' => $content);
+    my $self = shift;
+    my $content = shift;
+    my $response = $self->{ua}->post($self->{schema}."://".$self->{host}.":".$self->{port}."/SEMP", 
+                Authorization => 'Basic '.$self->{basic}, 
+                'Content' => $content);
     if ($response->is_success) {
-		print $response->status_line."\n" if ($self->{debug});
-		print $response->decoded_content."\n" if ($self->{debug});
-		my %ret = ( "error" => 0, "result" => handleXml($response->decoded_content) );
-		return \%ret;
+        print $response->status_line."\n" if ($self->{debug});
+        print $response->decoded_content."\n" if ($self->{debug});
+        my %ret = ( "error" => 0, "result" => handleXml($response->decoded_content) );
+        return \%ret;
     } else {
         print "Got error while sending request\n";
         print $response->status_line."\n";
         print $response->decoded_content."\n";
-		return ( "error" => $response->status_line, "result" => $response->decoded_content );
+        return ( "error" => $response->status_line, "result" => $response->decoded_content );
     }
 }
 
