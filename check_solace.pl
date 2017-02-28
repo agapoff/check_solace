@@ -33,10 +33,11 @@ GetOptions(
     'port|p=s',
     'username|u=s',
     'password=s',
-    'debug|D'
+    'debug|D',
+    'tls|t'
 );
 
-&help if (! $opt{host});
+&help if (! $opt{host} || ! $opt{mode} || ! $opt{version});
 
 my $semp = Solace::SEMP->new( %opt );
 
@@ -297,7 +298,10 @@ sub fail {
 
 sub help {
     my $me = basename($0);
-    print qq{Usage: $me <options>
+    print qq{Usage: $me -H host -V version -m mode [ -p port ] [ -u username ]
+                        [ -P password ] [ -n name ] [ -t ] [ -D ]
+                        [ -w warning ] [ -c critical ]
+
 Run checks against Solace Message Router using SEMP protocol.
 Returns with an exit code of 0 (success), 1 (warning), 2 (critical), or 3 (unknown)
 This is version $VERSION.
@@ -310,6 +314,7 @@ Common connection options:
  -V,  --version=NUM     Solace version (i.e. 8.0)
  -m,  --mode=STRING     test to perform
  -n,  --name=STRING     name of the interface or message-vpn to test (needed when the corresponding mode is selected)
+ -t,  --tls             SEMP service is encrypted with TLS
  -D,  --debug           debug mode
 
 Limit options:
