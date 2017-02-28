@@ -31,7 +31,7 @@ GetOptions(
     'mode|m=s',
     'name|n=s',
     'host|H=s',
-    'port|p=i',
+    'port|p=s',
     'username|u=s',
     'password|P=s',
     'debug|D',
@@ -122,7 +122,7 @@ elsif ($opt{mode} eq 'disk') {
             exit $CODE{CRITICAL};
         }
 
-        my $perfdataOut = join ', ',@perfdata;
+        my $perfdataOut = join ' ',@perfdata;
         print $ERROR{$exitStatus}.". ".$output." | ".$perfdataOut."\n";
         exit $exitStatus;
     } else {
@@ -141,7 +141,7 @@ elsif ($opt{mode} eq 'memory') {
         } elsif ( $physMemUsage >= $opt{warning} || $subscrMemUsage >= $opt{warning}) {
             $exitStatus = $CODE{WARNING};
         }
-        print $ERROR{$exitStatus}.". Physical mem usage $physMemUsage%. Subscriptions mem usage $subscrMemUsage% | 'physical-memory-usage'=$physMemUsage%;$opt{warning};$opt{critical}, 'subscription-memory-usage'=$subscrMemUsage%;$opt{warning};$opt{critical}\n";
+        print $ERROR{$exitStatus}.". Physical mem usage $physMemUsage%. Subscriptions mem usage $subscrMemUsage% | 'physical-memory-usage'=$physMemUsage%;$opt{warning};$opt{critical} 'subscription-memory-usage'=$subscrMemUsage%;$opt{warning};$opt{critical}\n";
         exit $exitStatus;
     } else {
         fail($req->{error});
@@ -194,7 +194,7 @@ elsif ($opt{mode} eq 'interface') {
             $output .= "Link: $link";
             if ($link ne 'yes') { $exitStatus = $CODE{CRITICAL}; }
         }
-        $output .= " | 'rx-bytes'=$rxBytes, 'tx-bytes'=$txBytes, 'rx-pkts'=$rxPkts, 'tx-pkts'=$txPkts";
+        $output .= " | 'rx-bytes'=$rxBytes 'tx-bytes'=$txBytes 'rx-pkts'=$rxPkts 'tx-pkts'=$txPkts";
         print $ERROR{$exitStatus}.' '.$output."\n";
         exit $exitStatus;
     } else {
@@ -221,9 +221,9 @@ elsif ($opt{mode} eq 'clients') {
             $exitStatus = $CODE{WARNING};
         }
         print $ERROR{$exitStatus}.". $clients connected, Rate $ingressRate/$egressRate msg/sec, ".
-          "Discarded $ingressDiscards/$egressDiscards | 'connected'=$clients;$opt{warning};$opt{critical}, ".
-          "'ingress-rate'=$ingressRate, 'egress-rate'=$egressRate, 'ingress-byte-rate'=$ingressByteRate, ".
-          "'egress-byte-rate'=$egressByteRate, 'ingress-discards'=$ingressDiscards, 'egress-discards'=$egressDiscards\n";
+          "Discarded $ingressDiscards/$egressDiscards | 'connected'=$clients;$opt{warning};$opt{critical} ".
+          "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
+          "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards\n";
         exit $exitStatus;
     } else {
         fail($req->{error});
@@ -277,11 +277,11 @@ elsif ($opt{mode} eq 'vpn') {
                 $exitStatus = $CODE{WARNING};
             }
             print $ERROR{$exitStatus}.". Subscriptions $uniqueSubscriptions/$maxSubscriptions, ".
-             "Connections $connections/$maxConnections | 'unique-subscriptions'=$uniqueSubscriptions, ".
-             "'subscriptions-usage'=$subscrUsage%, 'connections'=$connections, 'conn-usage'=$connUsage, ".
-             "'conn-smf'=$connSMF, 'conn-web'=$connWEB, 'conn-mqtt'=$connMQTT, ". 
-             "'ingress-rate'=$ingressRate, 'egress-rate'=$egressRate, 'ingress-byte-rate'=$ingressByteRate, ".
-             "'egress-byte-rate'=$egressByteRate, 'ingress-discards'=$ingressDiscards, 'egress-discards'=$egressDiscards\n";
+             "Connections $connections/$maxConnections | 'unique-subscriptions'=$uniqueSubscriptions ".
+             "'subscriptions-usage'=$subscrUsage% 'connections'=$connections 'conn-usage'=$connUsage ".
+             "'conn-smf'=$connSMF 'conn-web'=$connWEB 'conn-mqtt'=$connMQTT ".
+             "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
+             "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards\n";
         } else {
             print "CRITICAL. Enabled: $enabled, Operational: $operational, Status: $status\n";
             exit $CODE{CRITICAL};
