@@ -27,7 +27,7 @@ GetOptions(
     'critical=s',
     'version|V=s',
     'mode|m=s',
-	'name|n=s',
+    'name|n=s',
     'host|H=s',
     'port|p=s',
     'username|u=s',
@@ -45,32 +45,36 @@ if ($opt{mode} eq 'redundancy') {
     my $req = $semp->getRedundancy;
     if (! $req->{error} ) {
         my $configStatus = $req->{result}->{'config-status'}->[0];
-		my $redundancyStatus = $req->{result}->{'redundancy-status'}->[0];
-		my $redundancyMode = $req->{result}->{'redundancy-mode'}->[0];
-		my $mate = $req->{result}->{'mate-router-name'}->[0];
+        my $redundancyStatus = $req->{result}->{'redundancy-status'}->[0];
+        my $redundancyMode = $req->{result}->{'redundancy-mode'}->[0];
+        my $mate = $req->{result}->{'mate-router-name'}->[0] || 'N/A';
         if ($configStatus ne 'Enabled' || $redundancyStatus ne 'Up') {
-		    $exitStatus = $CODE{CRITICAL};
-		}
+            $exitStatus = $CODE{CRITICAL};
+        }
         print $ERROR{$exitStatus}.". Config: $configStatus, Status: $redundancyStatus, Mode: $redundancyMode, Mate: $mate\n";
-		exit $exitStatus;
+        exit $exitStatus;
     } else {
-	    fail($req->{error});
+        fail($req->{error});
     }
 }
 elsif ($opt{mode} eq 'alarm') {
     my $req = $semp->getAlarm;
     if ($req) { 
-	    print $req."\n";; 
-		exit $CODE{CRITICAL};
-	} else { 
-	    print "OK. No alarms\n"; 
-        exit $CODE{OK}		
-	}
+        print $req."\n";; 
+        exit $CODE{CRITICAL};
+    } else { 
+        print "OK. No alarms\n"; 
+        exit $CODE{OK}        
+    }
 }
 elsif ($opt{mode} eq 'raid') {
     my $req = $semp->getRaid;
     if (! $req->{error} ) {
         my $raidState = $req->{result}->{'raid-state'}->[0];
+        if (! defined $raidState) {
+            print "No RAID found (may be VMR)\n";
+            exit $CODE{CRITICAL};
+        }
         if ($raidState ne 'in fully redundant state') {
             $exitStatus = $CODE{CRITICAL};
         }
@@ -82,25 +86,25 @@ elsif ($opt{mode} eq 'raid') {
                 print "Disk ".$req->{result}->{number}->[$count]." State: ".$req->{result}->{state}->[$count].". ";
             }
         }
-		print "\n";
-		exit $exitStatus;
+        print "\n";
+        exit $exitStatus;
     } else {
         fail($req->{error});
     }
 }
 elsif ($opt{mode} eq 'disk') {
     $opt{warning} ||= 80;
-	$opt{critical} ||= 95;
+    $opt{critical} ||= 95;
     my $req = $semp->getDiskUsage;
     if (! $req->{error} ) {
         my $count = -1;
         my $output = '';
-		my @perfdata;
+        my @perfdata;
         foreach (@{$req->{result}->{type}}) {
             $count++;
             next if ($_ eq 'tmpfs' || $_ eq 'devtmpfs');
             my $usage = $req->{result}->{use}->[$count];
-			my $mountPoint = $req->{result}->{'mounted-on'}->[$count];
+            my $mountPoint = $req->{result}->{'mounted-on'}->[$count];
             $usage =~ s/\%//;
             if ($usage >= $opt{critical}) {
                 $exitStatus = $CODE{CRITICAL};
@@ -108,11 +112,16 @@ elsif ($opt{mode} eq 'disk') {
                 $exitStatus = $CODE{WARNING};
             }
             $output .= $mountPoint." usage ".$usage."%. ";
-			push @perfdata,"'$mountPoint'=$usage%;$opt{warning}%;$opt{critical}%";
+            push @perfdata,"'$mountPoint'=$usage%;$opt{warning}%;$opt{critical}%";
         }
-		my $perfdataOut = join ', ',@perfdata;
+        if (! $output) {
+            print "No disks found (may be VMR)\n";
+            exit $CODE{CRITICAL};
+        }
+
+        my $perfdataOut = join ', ',@perfdata;
         print $ERROR{$exitStatus}.". ".$output." | ".$perfdataOut."\n";
-		exit $exitStatus;
+        exit $exitStatus;
     } else {
         fail($req->{error});
     }
@@ -130,8 +139,8 @@ elsif ($opt{mode} eq 'memory') {
             $exitStatus = $CODE{WARNING};
         }
         print $ERROR{$exitStatus}.". Physical mem usage $physMemUsage%. Subscriptions mem usage $subscrMemUsage% | 'physical-memory-usage'=$physMemUsage%;$opt{warning};$opt{critical}, 'subscription-memory-usage'=$subscrMemUsage%;$opt{warning};$opt{critical}\n";
-		exit $exitStatus;
-	} else {
+        exit $exitStatus;
+    } else {
         fail($req->{error});
     }
 }
@@ -143,22 +152,22 @@ elsif ($opt{mode} eq 'environment') {
         foreach (@{$req->{result}->{status}}) {
             $count++;
             next if ($_ eq 'OK' || $_ eq '');
-			$exitStatus = $CODE{CRITICAL};
+            $exitStatus = $CODE{CRITICAL};
             $output .= $req->{result}->{'type'}->[$count].' '.$req->{result}->{'name'}->[$count].' '.
              $req->{result}->{'value'}->[$count].' '.$req->{result}->{'unit'}->[$count].' '.
              $req->{result}->{'status'}->[$count].'. ';
         }
-		print "Environment ".$ERROR{$exitStatus}.' '.$output."\n";
-		exit $exitStatus;
+        print "Environment ".$ERROR{$exitStatus}.' '.$output."\n";
+        exit $exitStatus;
     } else {
         fail($req->{error});
     }
 }
 elsif ($opt{mode} eq 'interface') {
     if (! $opt{name} ) {
-	    print "Interface name not defined\n";
-		exit $CODE{CRITICAL};
-	}
+        print "Interface name not defined\n";
+        exit $CODE{CRITICAL};
+    }
     my $req = $semp->getInterface(name => $opt{name});
     if (! $req->{error} ) {
         my $output = '';
@@ -169,22 +178,22 @@ elsif ($opt{mode} eq 'interface') {
         my $enabled = $req->{result}->{enabled}->[0];
         my $mode    = $req->{result}->{mode}->[0];
         my $link    = $req->{result}->{'link-detected'}->[0];
-		if (! defined $enabled) {
-		    print "Interface $opt{name} not found\n";
-			exit $CODE{CRITICAL};
-		}
+        if (! defined $enabled) {
+            print "Interface $opt{name} not found\n";
+            exit $CODE{CRITICAL};
+        }
         $output .= "Iface $opt{name}, Enabled: $enabled, ";
         if ($mode) {
-		    my $members = $req->{result}->{'operational-members'};
+            my $members = $req->{result}->{'operational-members'};
             $output .= "Mode: $mode, Operational Members: $members";
-			if (! $members > 0) { $exitStatus = $CODE{CRITICAL}; }
+            if (! $members > 0) { $exitStatus = $CODE{CRITICAL}; }
         } else {
             $output .= "Link: $link";
             if ($link ne 'yes') { $exitStatus = $CODE{CRITICAL}; }
         }
         $output .= " | 'rx-bytes'=$rxBytes, 'tx-bytes'=$txBytes, 'rx-pkts'=$rxPkts, 'tx-pkts'=$txPkts";
-		print $ERROR{$exitStatus}.' '.$output."\n";
-		exit $exitStatus;
+        print $ERROR{$exitStatus}.' '.$output."\n";
+        exit $exitStatus;
     } else {
         fail($req->{error});
     }
@@ -212,7 +221,7 @@ elsif ($opt{mode} eq 'clients') {
           "Discarded $ingressDiscards/$egressDiscards | 'connected'=$clients;$opt{warning};$opt{critical}, ".
           "'ingress-rate'=$ingressRate, 'egress-rate'=$egressRate, 'ingress-byte-rate'=$ingressByteRate, ".
           "'egress-byte-rate'=$egressByteRate, 'ingress-discards'=$ingressDiscards, 'egress-discards'=$egressDiscards\n";
-		exit $exitStatus;
+        exit $exitStatus;
     } else {
         fail($req->{error});
     }
@@ -246,8 +255,8 @@ elsif ($opt{mode} eq 'vpn') {
         my $egressDiscards = $req->{result}->{'total-egress-discards'}->[0];
 
         if (! defined $enabled) {
-	        print "Message VPN $opt{name} not known\n";
-	        exit $CODE{CRITICAL};
+            print "Message VPN $opt{name} not known\n";
+            exit $CODE{CRITICAL};
         }
 
         if ($enabled eq 'true' && $operational eq 'true' && $status eq 'Up') {
@@ -272,17 +281,17 @@ elsif ($opt{mode} eq 'vpn') {
              "'egress-byte-rate'=$egressByteRate, 'ingress-discards'=$ingressDiscards, 'egress-discards'=$egressDiscards\n";
         } else {
             print "CRITICAL. Enabled: $enabled, Operational: $operational, Status: $status\n";
-			exit $CODE{CRITICAL};
+            exit $CODE{CRITICAL};
         }
-	} else {
+    } else {
         fail($req->{error});
     }
 }
 
 sub fail {
     my $text = shift;
-	print $text;
-	exit $CODE{CRITICAL};
+    print $text;
+    exit $CODE{CRITICAL};
 }
 
 sub help {

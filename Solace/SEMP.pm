@@ -86,10 +86,10 @@ sub sendRequest {
         my %ret = ( "error" => 0, "result" => handleXml($response->decoded_content), "raw" => $response->decoded_content );
         return \%ret;
     } else {
-        print "Got error while sending request\n";
-        print $response->status_line."\n";
-        print $response->decoded_content."\n";
-        return ( "error" => $response->status_line, "result" => $response->decoded_content );
+        print "Got error while sending request".$response->status_line."\n" if ($self->{debug});
+        print $response->decoded_content."\n" if ($self->{debug});
+        my %ret = ( "error" => "Error connecting to server. ".$response->status_line, "result" => $response->decoded_content );
+        return \%ret;
     }
 }
 
