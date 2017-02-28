@@ -115,7 +115,7 @@ elsif ($opt{mode} eq 'disk') {
                 $exitStatus = $CODE{WARNING};
             }
             $output .= $mountPoint." usage ".$usage."%. ";
-            push @perfdata,"'$mountPoint'=$usage%;$opt{warning}%;$opt{critical}%";
+            push @perfdata,"'$mountPoint'=$usage%;$opt{warning};$opt{critical}";
         }
         if (! $output) {
             print "No disks found (may be VMR)\n";
@@ -278,7 +278,7 @@ elsif ($opt{mode} eq 'vpn') {
             }
             print $ERROR{$exitStatus}.". Subscriptions $uniqueSubscriptions/$maxSubscriptions, ".
              "Connections $connections/$maxConnections | 'unique-subscriptions'=$uniqueSubscriptions ".
-             "'subscriptions-usage'=$subscrUsage% 'connections'=$connections 'conn-usage'=$connUsage ".
+             "'subscriptions-usage'=$subscrUsage% 'connections'=$connections 'conn-usage'=$connUsage% ".
              "'conn-smf'=$connSMF 'conn-web'=$connWEB 'conn-mqtt'=$connMQTT ".
              "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
              "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards\n";
