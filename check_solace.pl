@@ -10,10 +10,11 @@
 
 use strict;
 use warnings;
-use Getopt::Long qw/GetOptions/;
-use Solace::SEMP;
+use Getopt::Long qw/GetOptions :config no_ignore_case/;
 use Data::Dumper qw/Dumper/;
-use File::Basename qw/basename/;
+use File::Basename qw/basename dirname/;
+use lib dirname(__FILE__);
+use Solace::SEMP;
 
 our $VERSION = '0.01';
 our %CODE=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
@@ -24,15 +25,15 @@ our %opt;
 GetOptions(
     \%opt,
     'help|h',
-    'warning=s',
-    'critical=s',
+    'warning|w=s',
+    'critical|c=s',
     'version|V=s',
     'mode|m=s',
     'name|n=s',
     'host|H=s',
-    'port|p=s',
+    'port|p=i',
     'username|u=s',
-    'password=s',
+    'password|P=s',
     'debug|D',
     'tls|t'
 );

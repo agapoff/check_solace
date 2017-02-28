@@ -198,7 +198,7 @@ sub getInterface {
 
     my $rpc = genRPC("show interface ".$args{name}, $self->{version});
     my $req = sendRequest($self, $rpc);
-    if (defined $req->{result}->{mode}->[0]) {
+    if (! $req->{error} && defined $req->{result}->{mode}->[0]) {
         $req->{result}->{'operational-members'} = countChildren($req->{raw}, 'operational-members');
     }
     return $req;
