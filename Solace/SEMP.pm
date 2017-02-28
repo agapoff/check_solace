@@ -17,6 +17,8 @@ use MIME::Base64;
 
 use Data::Dumper;
 
+$ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
+
 our %entryIDs = ( 'message-vpn' => 'vpn-name',
                   'interface'   => 'phy-interface' );
 
@@ -40,6 +42,8 @@ sub new {
 
     my $basic =  encode_base64($args{username}.":".$args{password});
     my $ua = $args{ua} || LWP::UserAgent->new;
+    $ua->timeout(2);
+
     my $schema = ($args{tls})?'https':'http';
 
     my $self = { host => $args{host}, 
