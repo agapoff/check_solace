@@ -13,6 +13,7 @@ use warnings;
 use Getopt::Long qw/GetOptions/;
 use Solace::SEMP;
 use Data::Dumper qw/Dumper/;
+use File::Basename qw/basename/;
 
 our $VERSION = '0.01';
 our %CODE=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
