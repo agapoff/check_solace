@@ -15,6 +15,11 @@ use Carp;
 use LWP::UserAgent;
 use MIME::Base64;
 
+use Data::Dumper;
+
+our %entryIDs = ( 'message-vpn' => 'vpn-name',
+                  'interface'   => 'phy-interface' );
+
 sub new {
     my $class = shift;
     my %args = @_;
@@ -31,6 +36,7 @@ sub new {
     $args{password} ||= 'admin';
     $args{version} =~ s/\./\_/g;
     $args{tls} ||= 0;
+    $args{debug} ||= 0;
 
     my $basic =  encode_base64($args{username}.":".$args{password});
     my $ua = $args{ua} || LWP::UserAgent->new;
@@ -42,7 +48,8 @@ sub new {
                  version => $args{version}, 
                  ua => $ua,
                  schema => $schema,
-                 tls => $args{tls}
+                 tls => $args{tls},
+                 debug => $args{debug}
                };
 
     bless $self, $class;
@@ -55,9 +62,11 @@ sub genRPC {
     my @words = split ' ', $str;
     while (my $word = shift @words) {
         my $tag = "<$word>##DATA##</$word>";
-        if ($word eq "message-vpn") {
-            my $vpnName = shift @words;
-            $tag =~ s/##DATA##/<vpn-name>$vpnName<\/vpn-name>##DATA##/;
+        if (defined $entryIDs{$word}) {
+            my $id = shift @words;
+            if ($id) {
+                $tag =~ s/##DATA##/<$entryIDs{$word}>$id<\/$entryIDs{$word}>##DATA##/;
+            }
         }
         $xml =~ s/##DATA##/$tag/;
     }
@@ -74,7 +83,7 @@ sub sendRequest {
     if ($response->is_success) {
         print $response->status_line."\n" if ($self->{debug});
         print $response->decoded_content."\n" if ($self->{debug});
-        my %ret = ( "error" => 0, "result" => handleXml($response->decoded_content) );
+        my %ret = ( "error" => 0, "result" => handleXml($response->decoded_content), "raw" => $response->decoded_content );
         return \%ret;
     } else {
         print "Got error while sending request\n";
@@ -88,10 +97,26 @@ sub handleXml {
     my $xml = shift;
     my %hash;
     while ($xml =~ /<([^<>]+)>([^<>]*)<\/\1>/g) {
-        $hash{$1} = $2;
+        #$hash{$1} = $2;
+        push @{$hash{$1}}, $2;
     }
     return \%hash;
 }
+
+# This sub counts the mount of top-level children inside the appropriate tag
+sub countChildren {
+    my $xml = shift;
+    my $tag = shift;
+
+    if ($xml =~ /<$tag>(.*?<([^<>]+)>.*?)<\/$tag>/s) {
+        my $content = $1;
+        my $child = $2;
+        my $count = () = $content =~ /<$child>/g;
+        return $count;
+    }
+    return 0;
+}
+
 
 
 
@@ -103,9 +128,84 @@ sub getMessageVpnStats {
         croak 'name parameter is required';
     }
 
-    my $content = genRPC("show message-vpn ".$args{name}." stats", $self->{version});
-    my $req = sendRequest($self, $content);
+    my $rpc = genRPC("show message-vpn ".$args{name}." stats", $self->{version});
+    my $req = sendRequest($self, $rpc);
     return $req;
 }
+
+sub getRedundancy {
+    my $self = shift;
+
+    my $rpc = genRPC("show redundancy", $self->{version});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
+sub getAlarm {
+    my $self = shift;
+
+    my $rpc = genRPC("show alarm", $self->{version});
+    my $req = sendRequest($self, $rpc);
+    if ($req->{error}) {
+        return $req->{error};
+    }
+    if (defined $req->{result}->{alarm}->[0] && $req->{result}->{alarm}->[0] =~ /^\s+$/) {
+        return '';
+    }
+    return join ',', map { $_.": ".$req->{result}->{$_}->[0] } keys %{$req->{result}->[0]};
+}
+
+sub getRaid {
+    my $self = shift;
+    #$self->{debug} = 1;
+    my $rpc = genRPC("show disk", $self->{version});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
+sub getDiskUsage {
+    my $self = shift;
+    my $rpc = genRPC("show disk detail", $self->{version});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
+sub getMemoryUsage {
+    my $self = shift;
+    my $rpc = genRPC("show memory", $self->{version});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
+sub getEnvironment {
+    my $self = shift;
+    my $rpc = genRPC("show environment", $self->{version});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
+sub getInterface {
+    my $self = shift;
+    my %args = @_;
+
+    unless ($args{name}) {
+        croak 'name parameter is required';
+    }
+
+    my $rpc = genRPC("show interface ".$args{name}, $self->{version});
+    my $req = sendRequest($self, $rpc);
+    if (defined $req->{result}->{mode}->[0]) {
+        $req->{result}->{'operational-members'} = countChildren($req->{raw}, 'operational-members');
+    }
+    return $req;
+}
+
+sub getClientStats {
+    my $self = shift;
+    my $rpc = genRPC("show stats client", $self->{version});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
 
 1;
