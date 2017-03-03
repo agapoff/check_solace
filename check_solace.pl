@@ -278,7 +278,8 @@ elsif ($opt{mode} eq 'vpn') {
             }
             print $ERROR{$exitStatus}.". Subscriptions $uniqueSubscriptions/$maxSubscriptions, ".
              "Connections $connections/$maxConnections | 'unique-subscriptions'=$uniqueSubscriptions ".
-             "'subscriptions-usage'=$subscrUsage% 'connections'=$connections 'conn-usage'=$connUsage% ".
+             "'subscriptions-usage'=$subscrUsage%;$opt{warning};$opt{critical} 'connections'=$connections ".
+			 "'conn-usage'=$connUsage%;$opt{warning};$opt{critical} ".
              "'conn-smf'=$connSMF 'conn-web'=$connWEB 'conn-mqtt'=$connMQTT ".
              "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
              "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards\n";
