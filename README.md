@@ -6,11 +6,13 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
 
  * Perl
  * LWP::UserAgent
+ * perl-LWP-Protocol-https (if https is used)
  * MIME::Base64
 
 ## Script usage
 
-    Usage: check_solace.pl -H host -V version -m mode [ -p port ] [ -u username ] [ -P password ] [ -n name ] [ -t ] [ -D ] [ -w warning ] [ -c critical ] 
+    Usage: check_solace.pl -H host -V version -m mode [ -p port ] [ -u username ] [ -P password ]
+       [ -n name ] [ -t ] [ -D ] [ -w warning ] [ -c critical ] 
     Returns with an exit code of 0 (success), 1 (warning), 2 (critical), or 3 (unknown)
     This is version 0.01.
     
@@ -21,7 +23,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
      -P,  --password=PASS   management user password; defaults to 'admin'
      -V,  --version=NUM     Solace version (i.e. 8.0)
      -m,  --mode=STRING     test to perform
-     -n,  --name=STRING     name of the interface or message-vpn to test (needed when the corresponding mode is selected)
+     -n,  --name=STRING     name of the interface or message-vpn to test (when the corresponding mode is selected)
      -t,  --tls             SEMP service is encrypted with TLS
      -D,  --debug           debug mode
     
