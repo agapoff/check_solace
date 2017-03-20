@@ -12,9 +12,9 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
 ## Script usage
 
     Usage: check_solace.pl -H host -V version -m mode [ -p port ] [ -u username ] [ -P password ]
-       [ -n name ] [ -t ] [ -D ] [ -w warning ] [ -c critical ] 
+       [ -n name ] [ -v vpn ] [ -t ] [ -D ] [ -w warning ] [ -c critical ] 
     Returns with an exit code of 0 (success), 1 (warning), 2 (critical), or 3 (unknown)
-    This is version 0.01.
+    This is version 0.02.
     
     Common connection options:
      -H,  --host=NAME       hostname to connect to
@@ -23,6 +23,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
      -P,  --password=PASS   management user password; defaults to 'admin'
      -V,  --version=NUM     Solace version (i.e. 8.0)
      -m,  --mode=STRING     test to perform
+     -v,  --vpn=STRING      name of the message-vpn
      -n,  --name=STRING     name of the interface or message-vpn to test (when the corresponding mode is selected)
      -t,  --tls             SEMP service is encrypted with TLS
      -D,  --debug           debug mode
@@ -39,6 +40,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
       memory
       interface
       clients
+      client
       vpn
 
 ## Examples:
@@ -66,6 +68,11 @@ Check redundancy (applicable for hardware appliances, not VMRs):
     ./check_solace.pl -H <...> --password=<...> --version=7.2 --mode=redundancy
     OK. Config: Enabled, Status: Up, Mode: Active/Active, Mate: sol02
 
+Check if client is connected and get some stats:
+
+    ./check_solace.pl -H <...> --password=<...> --version=7.2 --mode=client --name=my.client.* --vpn=my-vpn
+OK. my.client.1@my-vpn Rate 10/0 msg/sec, Discarded 37423/0 | 'ingress-rate'=10 'egress-rate'=0 'ingress-byte-rate'=0 'egress-byte-rate'=0 'ingress-discards'=37423 'egress-discards'=0
+
 
 ## Example configuration for Icinga
 
@@ -84,6 +91,7 @@ Command:
                 "-c" = "$critical$"
                 "-m" = "$solace_action$"
                 "-n" = "$name$"
+                "-v" = "$vpn$"
                 "-t" = {
                         set_if = "$is_tls$"
                 }
@@ -158,6 +166,15 @@ Services:
       assign where host.vars.solace_version
     }
 
+    apply Service "Client " for (client => config in host.vars.clients) {
+      import "generic-service"
+      check_command = "check-solace"
+      vars.solace_action = "client"
+      vars += config
+      assign where host.vars.solace_version
+    }
+
+
 Host template:
 
     template Host "solace-host" {
@@ -204,6 +221,10 @@ Hosts:
       vars.vpns = {
         "vpn1" = { vpn = "vpn1" },
         "vpn2" = { vpn = "vpn2" },
+      }
+      vars.clients = {
+        "client1" = { vpn = "vpn1",
+                      name = "client.*" }
       }
     }
 

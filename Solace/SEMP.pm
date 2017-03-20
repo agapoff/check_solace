@@ -20,6 +20,7 @@ use Data::Dumper;
 $ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
 
 our %entryIDs = ( 'message-vpn' => 'vpn-name',
+                  'client'      => 'name',
                   'interface'   => 'phy-interface' );
 
 sub new {
@@ -64,9 +65,14 @@ sub genRPC {
     my $version = shift;
     my $xml="<rpc semp-version=\"soltr/$version\">##DATA##</rpc>";
     my @words = split ' ', $str;
+    my $entryIdDefined = 0;
     while (my $word = shift @words) {
         my $tag = "<$word>##DATA##</$word>";
         if (defined $entryIDs{$word}) {
+            if ($entryIdDefined) {
+                $tag = "##DATA##";
+            }
+            $entryIdDefined = 1;
             my $id = shift @words;
             if ($id) {
                 $tag =~ s/##DATA##/<$entryIDs{$word}>$id<\/$entryIDs{$word}>##DATA##/;
@@ -207,6 +213,23 @@ sub getInterface {
 sub getClientStats {
     my $self = shift;
     my $rpc = genRPC("show stats client", $self->{version});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
+sub getVpnClientStats {
+    my $self = shift;
+    my %args = @_;
+
+    unless ($args{name}) {
+        croak 'name parameter is required';
+    }
+    unless ($args{vpn}) {
+        croak 'vpn parameter is required';
+    } 
+
+    my $rpc = genRPC("show client ".$args{name}." message-vpn ".$args{vpn}." stats", $self->{version});
+    print $rpc if ($self->{debug});
     my $req = sendRequest($self, $rpc);
     return $req;
 }

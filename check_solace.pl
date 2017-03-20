@@ -16,7 +16,7 @@ use File::Basename qw/basename dirname/;
 use lib dirname(__FILE__);
 use Solace::SEMP;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 our %CODE=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
 our %ERROR=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
 
@@ -29,6 +29,7 @@ GetOptions(
     'critical|c=s',
     'version|V=s',
     'mode|m=s',
+    'vpn|v=s',
     'name|n=s',
     'host|H=s',
     'port|p=s',
@@ -229,16 +230,52 @@ elsif ($opt{mode} eq 'clients') {
         fail($req->{error});
     }
 }
+elsif ($opt{mode} eq 'client') {
+    if (! $opt{vpn} ) {
+        print "Message-vpn not defined\n";
+        exit $CODE{CRITICAL};
+    }
+    if (! $opt{name} ) {
+        print "Client name not defined\n";
+        exit $CODE{CRITICAL};
+    }
+
+    my $req = $semp->getVpnClientStats(name => $opt{name}, vpn => $opt{vpn});
+    if (! $req->{error} ) {
+        my $name = $req->{result}->{'name'}->[0];
+        my $vpn = $req->{result}->{'message-vpn'}->[0];
+        my $ingressRate = $req->{result}->{'average-ingress-rate-per-minute'}->[0];
+        my $egressRate = $req->{result}->{'average-egress-rate-per-minute'}->[0];
+        my $ingressByteRate = $req->{result}->{'average-ingress-byte-rate-per-minute'}->[0];
+        my $egressByteRate = $req->{result}->{'average-egress-byte-rate-per-minute'}->[0];
+        my $ingressDiscards = $req->{result}->{'total-ingress-discards'}->[0];
+        my $egressDiscards = $req->{result}->{'total-egress-discards'}->[0];
+
+        if (! defined($name) ) {
+           fail("Client not connected");       
+        }
+
+        print $ERROR{$exitStatus}.". $name\@$vpn Rate $ingressRate/$egressRate msg/sec, ".
+          "Discarded $ingressDiscards/$egressDiscards | ".
+          "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
+          "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards\n";
+        exit $exitStatus;
+    } else {
+        fail($req->{error});
+    }
+}
 elsif ($opt{mode} eq 'vpn') {
     $opt{warning} ||= 50;
     $opt{critical} ||= 95;
 
-    if (! $opt{name} ) {
-        print "Message-vpn name not defined\n";
+    $opt{vpn} ||= $opt{name};
+
+    if (! $opt{vpn} ) {
+        print "Message-vpn not defined\n";
         exit $CODE{CRITICAL};
     }
 
-    my $req = $semp->getMessageVpnStats(name => $opt{name});
+    my $req = $semp->getMessageVpnStats(name => $opt{vpn});
     if (! $req->{error} ) {
         my $enabled = $req->{result}->{enabled}->[0];
         my $operational = $req->{result}->{operational}->[0];
@@ -291,6 +328,9 @@ elsif ($opt{mode} eq 'vpn') {
         fail($req->{error});
     }
 }
+else {
+    fail("Invalid mode ".$opt{mode});
+}
 
 sub fail {
     my $text = shift;
@@ -301,7 +341,7 @@ sub fail {
 sub help {
     my $me = basename($0);
     print qq{Usage: $me -H host -V version -m mode [ -p port ] [ -u username ]
-                        [ -P password ] [ -n name ] [ -t ] [ -D ]
+                        [ -P password ] [ -v vpn ] [ -n name ] [ -t ] [ -D ]
                         [ -w warning ] [ -c critical ]
 
 Run checks against Solace Message Router using SEMP protocol.
@@ -315,6 +355,7 @@ Common connection options:
  -P,  --password=PASS   management user password; defaults to 'admin'
  -V,  --version=NUM     Solace version (i.e. 8.0)
  -m,  --mode=STRING     test to perform
+ -v,  --vpn=STRING      name of the message-vpn
  -n,  --name=STRING     name of the interface or message-vpn to test (needed when the corresponding mode is selected)
  -t,  --tls             SEMP service is encrypted with TLS
  -D,  --debug           debug mode
@@ -331,6 +372,7 @@ Modes:
   memory
   interface
   clients
+  client
   vpn
 };
    exit 0;
