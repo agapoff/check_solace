@@ -5,7 +5,7 @@
 #
 # Vitaly Agapov <v.agapov@quotix.com>
 # 2017/02/27
-# Last modified:
+# Last modified: 2017/03/31
 ##########################
 
 use strict;
@@ -16,7 +16,7 @@ use File::Basename qw/basename dirname/;
 use lib dirname(__FILE__);
 use Solace::SEMP;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 our %CODE=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
 our %ERROR=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
 
@@ -250,6 +250,8 @@ elsif ($opt{mode} eq 'client') {
         my $egressByteRate = $req->{result}->{'average-egress-byte-rate-per-minute'}->[0];
         my $ingressDiscards = $req->{result}->{'total-ingress-discards'}->[0];
         my $egressDiscards = $req->{result}->{'total-egress-discards'}->[0];
+        my $totalMessagesReceived = $req->{result}->{'total-client-messages-received'}->[0];
+        my $totalMessagesSent = $req->{result}->{'total-client-messages-sent'}->[0];
 
         if (! defined($name) ) {
            fail("Client not connected");       
@@ -258,7 +260,8 @@ elsif ($opt{mode} eq 'client') {
         print $ERROR{$exitStatus}.". $name\@$vpn Rate $ingressRate/$egressRate msg/sec, ".
           "Discarded $ingressDiscards/$egressDiscards | ".
           "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
-          "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards\n";
+          "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards ".
+          "'total-messages-received'=$totalMessagesReceived 'total-messages-sent'=$totalMessagesSent\n";
         exit $exitStatus;
     } else {
         fail($req->{error});
