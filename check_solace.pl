@@ -16,7 +16,7 @@ use File::Basename qw/basename dirname/;
 use lib dirname(__FILE__);
 use Solace::SEMP;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 our %CODE=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
 our %ERROR=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
 
@@ -250,8 +250,8 @@ elsif ($opt{mode} eq 'client') {
         my $egressByteRate = $req->{result}->{'average-egress-byte-rate-per-minute'}->[0];
         my $ingressDiscards = $req->{result}->{'total-ingress-discards'}->[0];
         my $egressDiscards = $req->{result}->{'total-egress-discards'}->[0];
-        my $totalMessagesReceived = $req->{result}->{'total-client-messages-received'}->[0];
-        my $totalMessagesSent = $req->{result}->{'total-client-messages-sent'}->[0];
+		my $dataMessagesReceived = $req->{result}->{'client-data-messages-received'}->[0];
+		my $dataMessagesSent = $req->{result}->{'client-data-messages-sent'}->[0];
 
         if (! defined($name) ) {
            fail("Client not connected");       
@@ -261,7 +261,7 @@ elsif ($opt{mode} eq 'client') {
           "Discarded $ingressDiscards/$egressDiscards | ".
           "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
           "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards ".
-          "'total-messages-received'=$totalMessagesReceived 'total-messages-sent'=$totalMessagesSent\n";
+          "'data-messages-received'=$dataMessagesReceived 'data-messages-sent'=$dataMessagesSent\n";
         exit $exitStatus;
     } else {
         fail($req->{error});
