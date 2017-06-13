@@ -41,6 +41,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
       interface
       clients
       client
+      client-username
       vpn
 
 ## Examples:
@@ -71,8 +72,11 @@ Check redundancy (applicable for hardware appliances, not VMRs):
 Check if client is connected and get some stats:
 
     ./check_solace.pl -H <...> --password=<...> --version=7.2 --mode=client --name=my.client.* --vpn=my-vpn
-OK. my.client.1@my-vpn Rate 10/0 msg/sec, Discarded 37423/0 | 'ingress-rate'=10 'egress-rate'=0 'ingress-byte-rate'=0 'egress-byte-rate'=0 'ingress-discards'=37423 'egress-discards'=0
+    OK. my.client.1@my-vpn Rate 10/0 msg/sec, Discarded 37423/0 | 'ingress-rate'=10 'egress-rate'=0 'ingress-byte-rate'=0 'egress-byte-rate'=0 'ingress-discards'=37423 'egress-discards'=0
 
+Check if amount of client connections is not exceeded:
+    ./check_solace.pl -H <...> --password=<...> --version=7.2 --mode=client-username --name=* --vpn=my-vpn
+    CRITICAL. default@my-vpn usage 100%; my-client@my-vpn clients 6/10 web 0/0 smf 6/10; default@my-vpn clients 19/100000 web 19/19 smf 0/0; | 'my-client-num-clients'=6 'my-client-num-clients-web'=0 'my-client-num-clients-smf'=6 'default-num-clients'=19 'default-num-clients-web'=19 'default-num-clients-smf'=0
 
 ## Example configuration for Icinga
 
@@ -174,6 +178,15 @@ Services:
       assign where host.vars.solace_version
     }
 
+    apply Service "Solace Usernames " for (client => config in host.vars.solace_client_usernames) {
+      import "generic-service"
+      check_command = "check-solace"
+      vars.solace_action = "client-username"
+      vars += config
+      assign where host.vars.solace_version
+    }
+
+
 
 Host template:
 
@@ -225,6 +238,10 @@ Hosts:
       vars.clients = {
         "client1" = { vpn = "vpn1",
                       name = "client.*" }
+      }
+      vars.solace_client_usernames = {
+        "some description" = { vpn = "vpn1",
+			                   name = "*" }
       }
     }
 

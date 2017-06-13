@@ -63,12 +63,12 @@ if ($opt{mode} eq 'redundancy') {
 }
 elsif ($opt{mode} eq 'alarm') {
     my $req = $semp->getAlarm;
-    if ($req) { 
-        print $req."\n";; 
+    if ($req) {
+        print $req."\n";
         exit $CODE{CRITICAL};
-    } else { 
-        print "OK. No alarms\n"; 
-        exit $CODE{OK}        
+    } else {
+        print "OK. No alarms\n";
+        exit $CODE{OK}
     }
 }
 elsif ($opt{mode} eq 'raid') {
@@ -250,11 +250,11 @@ elsif ($opt{mode} eq 'client') {
         my $egressByteRate = $req->{result}->{'average-egress-byte-rate-per-minute'}->[0];
         my $ingressDiscards = $req->{result}->{'total-ingress-discards'}->[0];
         my $egressDiscards = $req->{result}->{'total-egress-discards'}->[0];
-		my $dataMessagesReceived = $req->{result}->{'client-data-messages-received'}->[0];
-		my $dataMessagesSent = $req->{result}->{'client-data-messages-sent'}->[0];
+        my $dataMessagesReceived = $req->{result}->{'client-data-messages-received'}->[0];
+        my $dataMessagesSent = $req->{result}->{'client-data-messages-sent'}->[0];
 
         if (! defined($name) ) {
-           fail("Client not connected");       
+           fail("Client not connected");
         }
 
         print $ERROR{$exitStatus}.". $name\@$vpn Rate $ingressRate/$egressRate msg/sec, ".
@@ -267,6 +267,81 @@ elsif ($opt{mode} eq 'client') {
         fail($req->{error});
     }
 }
+elsif ($opt{mode} eq 'client-username') {
+    $opt{warning}  ||= 80;
+    $opt{critical} ||= 95;
+
+    if (! $opt{vpn} ) {
+        print "Message-vpn not defined\n";
+        exit $CODE{CRITICAL};
+    }
+    if (! $opt{name} ) {
+        print "Client-username (name) not defined\n";
+        exit $CODE{CRITICAL};
+    }
+
+    my $req = $semp->getVpnClientUsernameStats(name => $opt{name}, vpn => $opt{vpn});
+	#$print Dumper($req);
+    if (! $req->{error} ) {
+        my $c = -1;
+        my %values;
+        my @stats = ('message-vpn', 'num-clients', 'num-clients-service-web', 'num-clients-service-smf', 'num-endpoints',
+                     'max-connections', 'max-connections-service-web', 'max-connections-service-smf', 'max-endpoints');
+		my $crit = '';
+        my $output;
+        my $perf;
+
+        foreach my $clientUsername (@{$req->{result}->{'client-username'}}) {
+			$c++;
+			next if ($clientUsername =~ /^#/);
+            foreach (@stats) {
+               $values{$clientUsername}->{$_} = $req->{result}->{$_}->[$c];
+            }
+            my $vpn = $values{$clientUsername}->{'message-vpn'};
+
+            my $maxConnections = $values{$clientUsername}->{'max-connections'};
+            my $numClients = $values{$clientUsername}->{'num-clients'};
+            my $connectionUsage = ($maxConnections > 0) ? $numClients * 100 / $maxConnections : 0;
+            my $maxUsage = $connectionUsage;
+
+            my $maxConnectionsWeb = $values{$clientUsername}->{'max-connections-service-web'};
+            my $numClientsWeb = $values{$clientUsername}->{'num-clients-service-web'};
+            my $webUsage = ($maxConnectionsWeb > 0) ? $numClientsWeb * 100 / $maxConnectionsWeb : 0;
+            $maxUsage = $webUsage if ($webUsage > $maxUsage);
+
+			my $maxConnectionsSmf = $values{$clientUsername}->{'max-connections-service-smf'};
+            my $numClientsSmf = $values{$clientUsername}->{'num-clients-service-smf'};
+            my $smfUsage = ($maxConnectionsSmf > 0) ? $numClientsSmf * 100 / $maxConnectionsSmf : 0;
+            $maxUsage = $smfUsage if ($smfUsage > $maxUsage);
+
+            $values{$clientUsername}->{'max-usage'} = $maxUsage;
+            if ( $maxUsage >= $opt{critical} ) {
+				$exitStatus = $CODE{CRITICAL};
+				$crit .= " $clientUsername\@$vpn usage $maxUsage%;"
+			}
+            elsif ($maxUsage >= $opt{warning} && $exitStatus != $CODE{CRITICAL}) {
+				$exitStatus = $CODE{WARNING};
+				$crit .= " $clientUsername\@$vpn usage $maxUsage%;"
+			}
+
+            $output .= " $clientUsername\@$vpn clients $numClients/$maxConnections web $numClientsWeb/$maxConnectionsWeb".
+			       " smf $numClientsSmf/$maxConnectionsSmf;";
+		    (my $perfUsername = $clientUsername) =~ s/\./\-/g;
+            $perf .= " '$perfUsername-num-clients'=$numClients '$perfUsername-num-clients-web'=$numClientsWeb".
+			       " '$perfUsername-num-clients-smf'=$numClientsSmf";
+        }
+
+		#if (! defined($name) ) {
+		#   fail("No username found");
+		#}
+
+        print $ERROR{$exitStatus} . '.' . $crit . $output . ' |' . $perf . "\n";
+        exit $exitStatus;
+    } else {
+        fail($req->{error});
+    }
+}
+
 elsif ($opt{mode} eq 'vpn') {
     $opt{warning} ||= 50;
     $opt{critical} ||= 95;
@@ -319,7 +394,7 @@ elsif ($opt{mode} eq 'vpn') {
             print $ERROR{$exitStatus}.". Subscriptions $uniqueSubscriptions/$maxSubscriptions, ".
              "Connections $connections/$maxConnections | 'unique-subscriptions'=$uniqueSubscriptions ".
              "'subscriptions-usage'=$subscrUsage%;$opt{warning};$opt{critical} 'connections'=$connections ".
-			 "'conn-usage'=$connUsage%;$opt{warning};$opt{critical} ".
+             "'conn-usage'=$connUsage%;$opt{warning};$opt{critical} ".
              "'conn-smf'=$connSMF 'conn-web'=$connWEB 'conn-mqtt'=$connMQTT ".
              "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
              "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards\n";
@@ -354,7 +429,7 @@ This is version $VERSION.
 Common connection options:
  -H,  --host=NAME       hostname to connect to
  -p,  --port=NUM        port to connect to; defaults to 80.
- -u,  --username=NAME   management user to connect as; defaults to 'admin' 
+ -u,  --username=NAME   management user to connect as; defaults to 'admin'
  -P,  --password=PASS   management user password; defaults to 'admin'
  -V,  --version=NUM     Solace version (i.e. 8.0)
  -m,  --mode=STRING     test to perform
@@ -376,6 +451,7 @@ Modes:
   interface
   clients
   client
+  client-username
   vpn
 };
    exit 0;

@@ -8,7 +8,7 @@ use vars qw($VERSION @ISA);
 use warnings;
 use strict;
 
-use version; 
+use version;
 our $VERSION = qv('0.1');
 
 use Carp;
@@ -19,9 +19,10 @@ use Data::Dumper;
 
 $ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
 
-our %entryIDs = ( 'message-vpn' => 'vpn-name',
-                  'client'      => 'name',
-                  'interface'   => 'phy-interface' );
+our %entryIDs = ( 'message-vpn'     => 'vpn-name',
+                  'client'          => 'name',
+                  'client-username' => 'name',
+                  'interface'       => 'phy-interface' );
 
 sub new {
     my $class = shift;
@@ -47,10 +48,10 @@ sub new {
 
     my $schema = ($args{tls})?'https':'http';
 
-    my $self = { host => $args{host}, 
-                 port => $args{port}, 
-                 basic => $basic, 
-                 version => $args{version}, 
+    my $self = { host => $args{host},
+                 port => $args{port},
+                 basic => $basic,
+                 version => $args{version},
                  ua => $ua,
                  schema => $schema,
                  tls => $args{tls},
@@ -87,8 +88,8 @@ sub genRPC {
 sub sendRequest {
     my $self = shift;
     my $content = shift;
-    my $response = $self->{ua}->post($self->{schema}."://".$self->{host}.":".$self->{port}."/SEMP", 
-                Authorization => 'Basic '.$self->{basic}, 
+    my $response = $self->{ua}->post($self->{schema}."://".$self->{host}.":".$self->{port}."/SEMP",
+                Authorization => 'Basic '.$self->{basic},
                 'Content' => $content);
     if ($response->is_success) {
         print $response->status_line."\n" if ($self->{debug});
@@ -226,9 +227,26 @@ sub getVpnClientStats {
     }
     unless ($args{vpn}) {
         croak 'vpn parameter is required';
-    } 
+    }
 
     my $rpc = genRPC("show client ".$args{name}." message-vpn ".$args{vpn}." stats", $self->{version});
+    print $rpc if ($self->{debug});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
+sub getVpnClientUsernameStats {
+    my $self = shift;
+    my %args = @_;
+
+    unless ($args{name}) {
+        croak 'name parameter is required';
+    }
+    unless ($args{vpn}) {
+        croak 'vpn parameter is required';
+    }
+
+    my $rpc = genRPC("show client-username ".$args{name}." message-vpn ".$args{vpn}." stats", $self->{version});
     print $rpc if ($self->{debug});
     my $req = sendRequest($self, $rpc);
     return $req;
