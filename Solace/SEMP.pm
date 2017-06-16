@@ -235,6 +235,24 @@ sub getVpnClientStats {
     return $req;
 }
 
+sub getVpnClientDetail {
+    my $self = shift;
+    my %args = @_;
+
+    unless ($args{name}) {
+        croak 'name parameter is required';
+    }
+    unless ($args{vpn}) {
+        croak 'vpn parameter is required';
+    }
+
+    my $rpc = genRPC("show client ".$args{name}." message-vpn ".$args{vpn}." detail", $self->{version});
+    print $rpc if ($self->{debug});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
+
 sub getVpnClientUsernameStats {
     my $self = shift;
     my %args = @_;

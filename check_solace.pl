@@ -36,7 +36,7 @@ GetOptions(
     'username|u=s',
     'password|P=s',
     'debug|D',
-    'tls|t'
+    'tls|t',
 );
 
 &help if (! $opt{host} || ! $opt{mode} || ! $opt{version});
@@ -267,6 +267,44 @@ elsif ($opt{mode} eq 'client') {
         fail($req->{error});
     }
 }
+elsif ($opt{mode} eq 'vpn-clients') {
+    if (! $opt{vpn} ) {
+        # print "Message-vpn not defined. Set --vpn=* to use all vpns\n";
+        # exit $CODE{CRITICAL};
+        $opt{vpn} = '*';
+    }
+    if (! $opt{name} ) {
+        # print "Client name not defined. Set --name=* to count all clients\n";
+        # exit $CODE{CRITICAL};
+        $opt{name} = '*';
+    }
+
+    my $req = $semp->getVpnClientDetail(name => $opt{name}, vpn => $opt{vpn});
+    if (! $req->{error} ) {
+        my $count;
+        my $public_count;
+        my $private_count;
+        foreach (@{$req->{result}->{'client-address'}}) {
+            $count++;
+            if (! isPrivate($_) ) { $public_count++; }
+            else { $private_count++; }
+        }
+
+        if (defined $opt{critical} && $count <= $opt{critical}) {
+            $exitStatus = $CODE{CRITICAL};
+        } elsif (defined $opt{warning} && $count <= $opt{warning}) {
+            $exitStatus = $CODE{WARNING};
+        }
+
+        $opt{warning} ||= '';
+        $opt{critical} ||= '';
+        print $ERROR{$exitStatus}.". $opt{name}\@$opt{vpn}: $count clients, $public_count from public IPs | ".
+          "'clients'=$count;$opt{warning};$opt{critical} 'clients-public'=$public_count 'clients-private'=$private_count\n";
+        exit $exitStatus;
+    } else {
+        fail($req->{error});
+    }
+}
 elsif ($opt{mode} eq 'client-username') {
     $opt{warning}  ||= 80;
     $opt{critical} ||= 95;
@@ -416,6 +454,12 @@ sub fail {
     exit $CODE{CRITICAL};
 }
 
+sub isPrivate {
+    my $ip = shift;
+    if ($ip =~ /(^127\.)|(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)/) { return 1; }
+    return;
+}
+
 sub help {
     my $me = basename($0);
     print qq{Usage: $me -H host -V version -m mode [ -p port ] [ -u username ]
@@ -452,6 +496,7 @@ Modes:
   clients
   client
   client-username
+  vpn-clients
   vpn
 };
    exit 0;
