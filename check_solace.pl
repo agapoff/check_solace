@@ -488,7 +488,7 @@ Limit options:
 
 Modes:
   redundancy
-  alarm
+  alarm (deprecated after 7.2)
   raid
   disk
   memory

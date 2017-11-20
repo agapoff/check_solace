@@ -21,7 +21,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
      -p,  --port=NUM        port to connect to; defaults to 80.
      -u,  --username=NAME   management user to connect as; defaults to 'admin' 
      -P,  --password=PASS   management user password; defaults to 'admin'
-     -V,  --version=NUM     Solace version (i.e. 7.2, 8.3VMR etc.
+     -V,  --version=NUM     Solace version (i.e. 7.2, 8.3VMR etc.)
      -m,  --mode=STRING     test to perform
      -v,  --vpn=STRING      name of the message-vpn
      -n,  --name=STRING     name of the interface or message-vpn to test (when the corresponding mode is selected)
@@ -34,7 +34,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
 
     Modes:
       redundancy
-      alarm
+      alarm (deprectaed after 7.2)
       raid
       disk
       memory
