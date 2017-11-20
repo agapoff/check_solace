@@ -16,7 +16,7 @@ use File::Basename qw/basename dirname/;
 use lib dirname(__FILE__);
 use Solace::SEMP;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 our %CODE=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
 our %ERROR=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
 
@@ -475,7 +475,7 @@ Common connection options:
  -p,  --port=NUM        port to connect to; defaults to 80.
  -u,  --username=NAME   management user to connect as; defaults to 'admin'
  -P,  --password=PASS   management user password; defaults to 'admin'
- -V,  --version=NUM     Solace version (i.e. 8.0)
+ -V,  --version=NUM     Solace version (i.e. 8.0, 8.3VMR etc.)
  -m,  --mode=STRING     test to perform
  -v,  --vpn=STRING      name of the message-vpn
  -n,  --name=STRING     name of the interface or message-vpn to test (needed when the corresponding mode is selected)

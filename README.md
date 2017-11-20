@@ -21,7 +21,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
      -p,  --port=NUM        port to connect to; defaults to 80.
      -u,  --username=NAME   management user to connect as; defaults to 'admin' 
      -P,  --password=PASS   management user password; defaults to 'admin'
-     -V,  --version=NUM     Solace version (i.e. 8.0)
+     -V,  --version=NUM     Solace version (i.e. 7.2, 8.3VMR etc.
      -m,  --mode=STRING     test to perform
      -v,  --vpn=STRING      name of the message-vpn
      -n,  --name=STRING     name of the interface or message-vpn to test (when the corresponding mode is selected)
@@ -49,7 +49,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
 
 Check the interface. The output will differ depending on interface type (physical / link aggregation):
 
-    ./check_solace.pl -H <...> --port=8080 --password=<...> --version=7.2 --mode=interface --name=intf0
+    ./check_solace.pl -H <...> --port=8080 --password=<...> --version=8.3VMR --mode=interface --name=intf0
     OK Iface intf0, Enabled: yes, Link: yes | 'rx-bytes'=56031686088 'tx-bytes'=22076095590 'rx-pkts'=285007113 'tx-pkts'=195647732
 
     ./check_solace.pl -H <...> --password=<...> --version=7.2 --mode=interface --name=chassis/lag1
@@ -76,10 +76,12 @@ Check if client is connected and get some stats:
     OK. my.client.1@my-vpn Rate 10/0 msg/sec, Discarded 37423/0 | 'ingress-rate'=10 'egress-rate'=0 'ingress-byte-rate'=0 'egress-byte-rate'=0 'ingress-discards'=37423 'egress-discards'=0
 
 Check if amount of client connections is not exceeded:
+
     ./check_solace.pl -H <...> --password=<...> --version=7.2 --mode=client-username --name=* --vpn=my-vpn
     CRITICAL. default@my-vpn usage 100%; my-client@my-vpn clients 6/10 web 0/0 smf 6/10; default@my-vpn clients 19/100000 web 19/19 smf 0/0; | 'my-client-num-clients'=6 'my-client-num-clients-web'=0 'my-client-num-clients-smf'=6 'default-num-clients'=19 'default-num-clients-web'=19 'default-num-clients-smf'=0
 
 Check if amount of Websocket clients is not less than needed:
+
     ./check_solace.pl -H <...> --password=<...> --version=7.2 --mode=vpn-clients --vpn=my-* --name=Gecko* --warning=100
     OK. Gecko*@my-*: 180 clients, 50 from public IPs | 'clients'=180;100; 'clients-public'=130 'clients-private'=50
 
