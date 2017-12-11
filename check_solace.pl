@@ -16,7 +16,7 @@ use File::Basename qw/basename dirname/;
 use lib dirname(__FILE__);
 use Solace::SEMP;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 our %CODE=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
 our %ERROR=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
 
@@ -284,10 +284,18 @@ elsif ($opt{mode} eq 'vpn-clients') {
         my $count;
         my $public_count;
         my $private_count;
+        my %platform_count;
+        my $platform_perf;
         foreach (@{$req->{result}->{'client-address'}}) {
             $count++;
             if (! isPrivate($_) ) { $public_count++; }
             else { $private_count++; }
+        }
+        foreach (@{$req->{result}->{'description'}}) {
+            $platform_count{getPlatformFromUA($_)}++;
+        }
+        foreach (sort keys %platform_count) {
+            $platform_perf .= " 'ua-$_'=".$platform_count{$_};
         }
 
         if (defined $opt{critical} && $count <= $opt{critical}) {
@@ -299,7 +307,8 @@ elsif ($opt{mode} eq 'vpn-clients') {
         $opt{warning} ||= '';
         $opt{critical} ||= '';
         print $ERROR{$exitStatus}.". $opt{name}\@$opt{vpn}: $count clients, $public_count from public IPs | ".
-          "'clients'=$count;$opt{warning};$opt{critical} 'clients-public'=$public_count 'clients-private'=$private_count\n";
+          "'clients'=$count;$opt{warning};$opt{critical} 'clients-public'=$public_count 'clients-private'=$private_count".
+          $platform_perf."\n";
         exit $exitStatus;
     } else {
         fail($req->{error});
@@ -458,6 +467,22 @@ sub isPrivate {
     my $ip = shift;
     if ($ip =~ /(^127\.)|(^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)/) { return 1; }
     return;
+}
+
+sub getPlatformFromUA {
+    my $ua = shift;
+    if ($ua =~ /iP(hone|od|ad)/) {
+        return 'iphone';
+    } elsif ($ua =~ /Android/) {
+        return 'android';
+    } elsif ($ua =~ /Linux/) {
+        return 'linux';
+    } elsif ($ua =~ /Macintosh/) {
+        return 'mac';
+    } elsif ($ua =~ /Windows/) {
+        return 'windows';
+    }
+    return 'other';
 }
 
 sub help {

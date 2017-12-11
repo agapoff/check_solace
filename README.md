@@ -14,7 +14,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
     Usage: check_solace.pl -H host -V version -m mode [ -p port ] [ -u username ] [ -P password ]
        [ -n name ] [ -v vpn ] [ -t ] [ -D ] [ -w warning ] [ -c critical ] 
     Returns with an exit code of 0 (success), 1 (warning), 2 (critical), or 3 (unknown)
-    This is version 0.02.
+    This is version 0.06.
     
     Common connection options:
      -H,  --host=NAME       hostname to connect to
@@ -83,7 +83,7 @@ Check if amount of client connections is not exceeded:
 Check if amount of Websocket clients is not less than needed:
 
     ./check_solace.pl -H <...> --password=<...> --version=7.2 --mode=vpn-clients --vpn=my-* --name=Gecko* --warning=100
-    OK. Gecko*@my-*: 180 clients, 50 from public IPs | 'clients'=180;100; 'clients-public'=130 'clients-private'=50
+    OK. Gecko*@my-*: 180 clients, 50 from public IPs | 'clients'=180;100; 'clients-public'=130 'clients-private'=50  'ua-iphone'=10 'ua-mac'=30 'ua-windows'=140
 
 ## Example configuration for Icinga
 
