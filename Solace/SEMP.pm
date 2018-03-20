@@ -158,6 +158,14 @@ sub getRedundancy {
     return $req;
 }
 
+sub getConfigSync {
+    my $self = shift;
+
+    my $rpc = genRPC("show config-sync", $self->{version});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
 sub getAlarm {
     my $self = shift;
 

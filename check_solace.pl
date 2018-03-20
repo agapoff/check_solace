@@ -16,7 +16,7 @@ use File::Basename qw/basename dirname/;
 use lib dirname(__FILE__);
 use Solace::SEMP;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 our %CODE=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
 our %ERROR=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
 
@@ -56,6 +56,20 @@ if ($opt{mode} eq 'redundancy') {
             $exitStatus = $CODE{CRITICAL};
         }
         print $ERROR{$exitStatus}.". Config: $configStatus, Status: $redundancyStatus, Mode: $redundancyMode, Mate: $mate\n";
+        exit $exitStatus;
+    } else {
+        fail($req->{error});
+    }
+}
+elsif ($opt{mode} eq 'config-sync') {
+    my $req = $semp->getConfigSync;
+    if (! $req->{error} ) {
+        my $adminStatus = $req->{result}->{'admin-status'}->[0];
+        my $operStatus = $req->{result}->{'oper-status'}->[0];
+        if ($operStatus ne 'Up') {
+            $exitStatus = $CODE{CRITICAL};
+        }
+        print $ERROR{$exitStatus}.". Oper status: $operStatus, Admin status: $adminStatus\n";
         exit $exitStatus;
     } else {
         fail($req->{error});
@@ -544,6 +558,7 @@ Limit options:
 
 Modes:
   redundancy
+  config-sync
   alarm (deprecated after 7.2)
   raid
   disk

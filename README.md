@@ -14,7 +14,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
     Usage: check_solace.pl -H host -V version -m mode [ -p port ] [ -u username ] [ -P password ]
        [ -n name ] [ -v vpn ] [ -t ] [ -D ] [ -w warning ] [ -c critical ] 
     Returns with an exit code of 0 (success), 1 (warning), 2 (critical), or 3 (unknown)
-    This is version 0.06.
+    This is version 0.07.
     
     Common connection options:
      -H,  --host=NAME       hostname to connect to
@@ -34,6 +34,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
 
     Modes:
       redundancy
+      config-sync
       alarm (deprectaed after 7.2)
       raid
       disk
