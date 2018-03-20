@@ -94,7 +94,12 @@ sub sendRequest {
     if ($response->is_success) {
         print $response->status_line."\n" if ($self->{debug});
         print $response->decoded_content."\n" if ($self->{debug});
-        my %ret = ( "error" => 0, "result" => handleXml($response->decoded_content), "raw" => $response->decoded_content );
+        my $error = 0;
+        my $result = handleXml($response->decoded_content);
+        if (defined $result->{'parse-error'}) {
+            $error = $result->{'parse-error'}->[0];
+        }
+        my %ret = ( "error" => $error, "result" => handleXml($response->decoded_content), "raw" => $response->decoded_content );
         return \%ret;
     } else {
         print "Got error while sending request".$response->status_line."\n" if ($self->{debug});
