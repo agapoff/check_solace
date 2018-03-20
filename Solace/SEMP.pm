@@ -22,6 +22,7 @@ $ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
 our %entryIDs = ( 'message-vpn'     => 'vpn-name',
                   'client'          => 'name',
                   'client-username' => 'name',
+                  'storage-element' => 'pattern',
                   'interface'       => 'phy-interface' );
 
 sub new {
@@ -182,6 +183,13 @@ sub getRaid {
 sub getDiskUsage {
     my $self = shift;
     my $rpc = genRPC("show disk detail", $self->{version});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
+sub getStorageElement {
+    my $self = shift;
+    my $rpc = genRPC("show storage-element *", $self->{version});
     my $req = sendRequest($self, $rpc);
     return $req;
 }

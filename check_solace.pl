@@ -72,6 +72,9 @@ elsif ($opt{mode} eq 'alarm') {
     }
 }
 elsif ($opt{mode} eq 'raid') {
+    if ($opt{version} =~ /VMR/) {
+        fail("Mode not supported by VMR");
+    }
     my $req = $semp->getRaid;
     if (! $req->{error} ) {
         my $raidState = $req->{result}->{'raid-state'}->[0];
@@ -99,35 +102,63 @@ elsif ($opt{mode} eq 'raid') {
 elsif ($opt{mode} eq 'disk') {
     $opt{warning} ||= 80;
     $opt{critical} ||= 95;
-    my $req = $semp->getDiskUsage;
-    if (! $req->{error} ) {
-        my $count = -1;
-        my $output = '';
-        my @perfdata;
-        foreach (@{$req->{result}->{type}}) {
-            $count++;
-            next if ($_ eq 'tmpfs' || $_ eq 'devtmpfs');
-            my $usage = $req->{result}->{use}->[$count];
-            my $mountPoint = $req->{result}->{'mounted-on'}->[$count];
-            $usage =~ s/\%//;
-            if ($usage >= $opt{critical}) {
-                $exitStatus = $CODE{CRITICAL};
-            } elsif ($usage >= $opt{warning} && $exitStatus < $CODE{CRITICAL}) {
-                $exitStatus = $CODE{WARNING};
+    if ($opt{version} =~ /VMR/) {
+        my $req = $semp->getStorageElement;
+        #print Dumper($req);
+        if (! $req->{error} ) {
+            my $count = -1;
+            my $output = '';
+            my @perfdata;
+            foreach my $name (@{$req->{result}->{name}}) {
+                $count++;
+                my $usage = $req->{result}->{'used-percentage'}->[$count];
+                $usage =~ s/\..*//;
+                if ($usage >= $opt{critical}) {
+                    $exitStatus = $CODE{CRITICAL};
+                } elsif ($usage >= $opt{warning} && $exitStatus < $CODE{CRITICAL}) {
+                    $exitStatus = $CODE{WARNING};
+                }
+                $output .= $name." usage ".$usage."%. ";
+                push @perfdata,"'$name'=$usage%;$opt{warning};$opt{critical}";
             }
-            $output .= $mountPoint." usage ".$usage."%. ";
-            push @perfdata,"'$mountPoint'=$usage%;$opt{warning};$opt{critical}";
+            my $perfdataOut = join ' ',@perfdata;
+            print $ERROR{$exitStatus}.". ".$output." | ".$perfdataOut."\n";
+            exit $exitStatus;
+        } else {
+            fail($req->{error});
         }
-        if (! $output) {
-            print "No disks found (may be VMR)\n";
-            exit $CODE{CRITICAL};
-        }
+    }
+    else {
+        my $req = $semp->getDiskUsage;
+        if (! $req->{error} ) {
+            my $count = -1;
+            my $output = '';
+            my @perfdata;
+            foreach (@{$req->{result}->{type}}) {
+                $count++;
+                next if ($_ eq 'tmpfs' || $_ eq 'devtmpfs');
+                my $usage = $req->{result}->{use}->[$count];
+                my $mountPoint = $req->{result}->{'mounted-on'}->[$count];
+                $usage =~ s/\%//;
+                if ($usage >= $opt{critical}) {
+                    $exitStatus = $CODE{CRITICAL};
+                } elsif ($usage >= $opt{warning} && $exitStatus < $CODE{CRITICAL}) {
+                    $exitStatus = $CODE{WARNING};
+                }
+                $output .= $mountPoint." usage ".$usage."%. ";
+                push @perfdata,"'$mountPoint'=$usage%;$opt{warning};$opt{critical}";
+            }
+            if (! $output) {
+                print "No disks found (may be VMR)\n";
+                exit $CODE{CRITICAL};
+            }
 
-        my $perfdataOut = join ' ',@perfdata;
-        print $ERROR{$exitStatus}.". ".$output." | ".$perfdataOut."\n";
-        exit $exitStatus;
-    } else {
-        fail($req->{error});
+            my $perfdataOut = join ' ',@perfdata;
+            print $ERROR{$exitStatus}.". ".$output." | ".$perfdataOut."\n";
+            exit $exitStatus;
+        } else {
+            fail($req->{error});
+        }
     }
 }
 elsif ($opt{mode} eq 'memory') {
@@ -158,8 +189,8 @@ elsif ($opt{mode} eq 'environment') {
             next if ($_ eq 'OK' || $_ eq '');
             $exitStatus = $CODE{CRITICAL};
             $output .= $req->{result}->{'type'}->[$count].' '.$req->{result}->{'name'}->[$count].' '.
-             $req->{result}->{'value'}->[$count].' '.$req->{result}->{'unit'}->[$count].' '.
-             $req->{result}->{'status'}->[$count].'. ';
+            $req->{result}->{'value'}->[$count].' '.$req->{result}->{'unit'}->[$count].' '.
+            $req->{result}->{'status'}->[$count].'. ';
         }
         print "Environment ".$ERROR{$exitStatus}.' '.$output."\n";
         exit $exitStatus;
@@ -222,9 +253,9 @@ elsif ($opt{mode} eq 'clients') {
             $exitStatus = $CODE{WARNING};
         }
         print $ERROR{$exitStatus}.". $clients connected, Rate $ingressRate/$egressRate msg/sec, ".
-          "Discarded $ingressDiscards/$egressDiscards | 'connected'=$clients;$opt{warning};$opt{critical} ".
-          "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
-          "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards\n";
+        "Discarded $ingressDiscards/$egressDiscards | 'connected'=$clients;$opt{warning};$opt{critical} ".
+        "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
+        "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards\n";
         exit $exitStatus;
     } else {
         fail($req->{error});
@@ -254,14 +285,14 @@ elsif ($opt{mode} eq 'client') {
         my $dataMessagesSent = $req->{result}->{'client-data-messages-sent'}->[0];
 
         if (! defined($name) ) {
-           fail("Client not connected");
+            fail("Client not connected");
         }
 
         print $ERROR{$exitStatus}.". $name\@$vpn Rate $ingressRate/$egressRate msg/sec, ".
-          "Discarded $ingressDiscards/$egressDiscards | ".
-          "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
-          "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards ".
-          "'data-messages-received'=$dataMessagesReceived 'data-messages-sent'=$dataMessagesSent\n";
+        "Discarded $ingressDiscards/$egressDiscards | ".
+        "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
+        "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards ".
+        "'data-messages-received'=$dataMessagesReceived 'data-messages-sent'=$dataMessagesSent\n";
         exit $exitStatus;
     } else {
         fail($req->{error});
@@ -307,8 +338,8 @@ elsif ($opt{mode} eq 'vpn-clients') {
         $opt{warning} ||= '';
         $opt{critical} ||= '';
         print $ERROR{$exitStatus}.". $opt{name}\@$opt{vpn}: $count clients, $public_count from public IPs | ".
-          "'clients'=$count;$opt{warning};$opt{critical} 'clients-public'=$public_count 'clients-private'=$private_count".
-          $platform_perf."\n";
+        "'clients'=$count;$opt{warning};$opt{critical} 'clients-public'=$public_count 'clients-private'=$private_count".
+        $platform_perf."\n";
         exit $exitStatus;
     } else {
         fail($req->{error});
@@ -328,21 +359,21 @@ elsif ($opt{mode} eq 'client-username') {
     }
 
     my $req = $semp->getVpnClientUsernameStats(name => $opt{name}, vpn => $opt{vpn});
-	#$print Dumper($req);
+    #$print Dumper($req);
     if (! $req->{error} ) {
         my $c = -1;
         my %values;
         my @stats = ('message-vpn', 'num-clients', 'num-clients-service-web', 'num-clients-service-smf', 'num-endpoints',
-                     'max-connections', 'max-connections-service-web', 'max-connections-service-smf', 'max-endpoints');
-		my $crit = '';
+            'max-connections', 'max-connections-service-web', 'max-connections-service-smf', 'max-endpoints');
+        my $crit = '';
         my $output;
         my $perf;
 
         foreach my $clientUsername (@{$req->{result}->{'client-username'}}) {
-			$c++;
-			next if ($clientUsername =~ /^#/);
+            $c++;
+            next if ($clientUsername =~ /^#/);
             foreach (@stats) {
-               $values{$clientUsername}->{$_} = $req->{result}->{$_}->[$c];
+                $values{$clientUsername}->{$_} = $req->{result}->{$_}->[$c];
             }
             my $vpn = $values{$clientUsername}->{'message-vpn'};
 
@@ -356,31 +387,31 @@ elsif ($opt{mode} eq 'client-username') {
             my $webUsage = ($maxConnectionsWeb > 0) ? $numClientsWeb * 100 / $maxConnectionsWeb : 0;
             $maxUsage = $webUsage if ($webUsage > $maxUsage);
 
-			my $maxConnectionsSmf = $values{$clientUsername}->{'max-connections-service-smf'};
+            my $maxConnectionsSmf = $values{$clientUsername}->{'max-connections-service-smf'};
             my $numClientsSmf = $values{$clientUsername}->{'num-clients-service-smf'};
             my $smfUsage = ($maxConnectionsSmf > 0) ? $numClientsSmf * 100 / $maxConnectionsSmf : 0;
             $maxUsage = $smfUsage if ($smfUsage > $maxUsage);
 
             $values{$clientUsername}->{'max-usage'} = $maxUsage;
             if ( $maxUsage >= $opt{critical} ) {
-				$exitStatus = $CODE{CRITICAL};
-				$crit .= " $clientUsername\@$vpn usage $maxUsage%;"
-			}
+                $exitStatus = $CODE{CRITICAL};
+                $crit .= " $clientUsername\@$vpn usage $maxUsage%;"
+            }
             elsif ($maxUsage >= $opt{warning} && $exitStatus != $CODE{CRITICAL}) {
-				$exitStatus = $CODE{WARNING};
-				$crit .= " $clientUsername\@$vpn usage $maxUsage%;"
-			}
+                $exitStatus = $CODE{WARNING};
+                $crit .= " $clientUsername\@$vpn usage $maxUsage%;"
+            }
 
             $output .= " $clientUsername\@$vpn clients $numClients/$maxConnections web $numClientsWeb/$maxConnectionsWeb".
-			       " smf $numClientsSmf/$maxConnectionsSmf;";
-		    (my $perfUsername = $clientUsername) =~ s/\./\-/g;
+            " smf $numClientsSmf/$maxConnectionsSmf;";
+            (my $perfUsername = $clientUsername) =~ s/\./\-/g;
             $perf .= " '$perfUsername-num-clients'=$numClients '$perfUsername-num-clients-web'=$numClientsWeb".
-			       " '$perfUsername-num-clients-smf'=$numClientsSmf";
+            " '$perfUsername-num-clients-smf'=$numClientsSmf";
         }
 
-		#if (! defined($name) ) {
-		#   fail("No username found");
-		#}
+        #if (! defined($name) ) {
+        #   fail("No username found");
+        #}
 
         print $ERROR{$exitStatus} . '.' . $crit . $output . ' |' . $perf . "\n";
         exit $exitStatus;
@@ -439,12 +470,12 @@ elsif ($opt{mode} eq 'vpn') {
                 $exitStatus = $CODE{WARNING};
             }
             print $ERROR{$exitStatus}.". Subscriptions $uniqueSubscriptions/$maxSubscriptions, ".
-             "Connections $connections/$maxConnections | 'unique-subscriptions'=$uniqueSubscriptions ".
-             "'subscriptions-usage'=$subscrUsage%;$opt{warning};$opt{critical} 'connections'=$connections ".
-             "'conn-usage'=$connUsage%;$opt{warning};$opt{critical} ".
-             "'conn-smf'=$connSMF 'conn-web'=$connWEB 'conn-mqtt'=$connMQTT ".
-             "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
-             "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards\n";
+            "Connections $connections/$maxConnections | 'unique-subscriptions'=$uniqueSubscriptions ".
+            "'subscriptions-usage'=$subscrUsage%;$opt{warning};$opt{critical} 'connections'=$connections ".
+            "'conn-usage'=$connUsage%;$opt{warning};$opt{critical} ".
+            "'conn-smf'=$connSMF 'conn-web'=$connWEB 'conn-mqtt'=$connMQTT ".
+            "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
+            "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards\n";
         } else {
             print "CRITICAL. Enabled: $enabled, Operational: $operational, Status: $status\n";
             exit $CODE{CRITICAL};
@@ -526,5 +557,3 @@ Modes:
 };
    exit 0;
 }
-
-#print Dumper($req);
