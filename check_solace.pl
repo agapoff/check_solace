@@ -326,11 +326,11 @@ elsif ($opt{mode} eq 'vpn-clients') {
 
     my $req = $semp->getVpnClientDetail(name => $opt{name}, vpn => $opt{vpn});
     if (! $req->{error} ) {
-        my $count;
-        my $public_count;
-        my $private_count;
+        my $count = 0;
+        my $public_count = 0;
+        my $private_count = 0;
         my %platform_count;
-        my $platform_perf;
+        my $platform_perf = "";
         foreach (@{$req->{result}->{'client-address'}}) {
             $count++;
             if (! isPrivate($_) ) { $public_count++; }
