@@ -5,7 +5,7 @@
 #
 # Vitaly Agapov <v.agapov@quotix.com>
 # 2017/02/27
-# Last modified: 2017/03/31
+# Last modified: 2018/08/13
 ##########################
 
 use strict;
@@ -16,7 +16,7 @@ use File::Basename qw/basename dirname/;
 use lib dirname(__FILE__);
 use Solace::SEMP;
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 our %CODE=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
 our %ERROR=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
 
@@ -409,11 +409,11 @@ elsif ($opt{mode} eq 'client-username') {
             $values{$clientUsername}->{'max-usage'} = $maxUsage;
             if ( $maxUsage >= $opt{critical} ) {
                 $exitStatus = $CODE{CRITICAL};
-                $crit .= " $clientUsername\@$vpn usage $maxUsage%;"
+                $crit .= " $clientUsername\@$vpn usage $maxUsage%;";
             }
             elsif ($maxUsage >= $opt{warning} && $exitStatus != $CODE{CRITICAL}) {
                 $exitStatus = $CODE{WARNING};
-                $crit .= " $clientUsername\@$vpn usage $maxUsage%;"
+                $crit .= " $clientUsername\@$vpn usage $maxUsage%;";
             }
 
             $output .= " $clientUsername\@$vpn clients $numClients/$maxConnections web $numClientsWeb/$maxConnectionsWeb".
@@ -498,6 +498,151 @@ elsif ($opt{mode} eq 'vpn') {
         fail($req->{error});
     }
 }
+elsif ($opt{mode} eq 'spool') {
+    $opt{warning} ||= 50;
+    $opt{critical} ||= 95;
+
+    $opt{vpn} ||= $opt{name};
+
+    if (! $opt{vpn} ) {
+        print "Message-vpn not defined\n";
+        exit $CODE{CRITICAL};
+    }
+
+    my $req = $semp->getSpoolUsage(vpn => $opt{vpn});
+    if (! $req->{error} ) {
+        my $c = -1;
+        my %values;
+#        my @mandatoryStats = ('current-spool-usage-mb', 'current-messages-spooled', 'maximum-spool-usage-mb');
+#        my @optionalStats = ('maximum-queues-and-topic-endpoints', 'current-queues-and-topic-endpoints', 'maximum-egress-flows', 'current-egress-flows', 'maximum-ingress-flows', 'current-ingress-flows', 'maximum-transactions', 'current-transactions', 'maximum-transacted-sessions', 'current-transacted-sessions');
+        my @stats = ('current-spool-usage-mb', 'current-messages-spooled', 'maximum-spool-usage-mb', 'maximum-queues-and-topic-endpoints', 'current-queues-and-topic-endpoints', 'maximum-egress-flows', 'current-egress-flows', 'maximum-ingress-flows', 'current-ingress-flows', 'maximum-transactions', 'current-transactions', 'maximum-transacted-sessions', 'current-transacted-sessions');
+        my $crit = '';
+        my $output;
+        my $perf;
+        if (! defined $req->{result}->{'name'}) {
+            print "Message VPN $opt{vpn} not known\n";
+            exit $CODE{CRITICAL};
+        }
+        foreach my $messageVPN (@{$req->{result}->{'name'}}) {
+            $c++;
+            last if (! defined $req->{result}->{'current-spool-usage-mb'}->[$c]);
+            foreach (@stats) {
+                $values{$messageVPN}->{$_} = $req->{result}->{$_}->[$c] if (defined $req->{result}->{$_}->[$c]);
+            }
+
+            my $currentMessagesSpooled = $values{$messageVPN}->{'current-messages-spooled'};
+            my $currentSpoolUsage = $values{$messageVPN}->{'current-spool-usage-mb'};
+            my $maxSpoolUsage = $values{$messageVPN}->{'maximum-spool-usage-mb'};
+            my $percUsage = ($maxSpoolUsage > 0) ? $currentSpoolUsage * 100 /$maxSpoolUsage : 0;
+            if ($percUsage >= $opt{critical}) {
+                $exitStatus = $CODE{CRITICAL};
+            } elsif ($percUsage >= $opt{warning} && $exitStatus != $CODE{CRITICAL}) {
+                $exitStatus = $CODE{WARNING};
+            }
+
+            $output .= " $messageVPN spool usage ".sprintf("%.1f",$percUsage)."% ($currentSpoolUsage/$maxSpoolUsage MB)";
+            (my $perfMessageVPN = $messageVPN) =~ s/\./\-/g;
+            $perf .= " '$perfMessageVPN-spool-usage'=$percUsage;$opt{warning};$opt{critical} '$perfMessageVPN-spool-usage-mb'=$currentSpoolUsage '$perfMessageVPN-messages-spooled'=$currentMessagesSpooled '$perfMessageVPN-max-spool-usage-mb'=$maxSpoolUsage";
+
+            # A set of additional params are included only if only one message-vpn is selected
+            if (defined $values{$messageVPN}->{'current-queues-and-topic-endpoints'}) {
+                my $currentEndpoints = $values{$messageVPN}->{'current-queues-and-topic-endpoints'};
+                my $maxEndpoints = $values{$messageVPN}->{'maximum-queues-and-topic-endpoints'};
+                my $currentEgressFlows = $values{$messageVPN}->{'current-egress-flows'};
+                my $maxEgressFlows = $values{$messageVPN}->{'maximum-egress-flows'};
+                my $currentIngressFlows = $values{$messageVPN}->{'current-ingress-flows'};
+                my $maxIngressFlows = $values{$messageVPN}->{'maximum-ingress-flows'};
+                my $currentTransactions = $values{$messageVPN}->{'current-transactions'};
+                my $maxTransactions = $values{$messageVPN}->{'maximum-transactions'};
+                my $currentTransactedSessions = $values{$messageVPN}->{'current-transacted-sessions'};
+                my $maxTransactedSessions = $values{$messageVPN}->{'maximum-transacted-sessions'};
+
+                my $endpointsUsage = ($maxEndpoints > 0) ? $currentEndpoints * 100 / $maxEndpoints : 0;
+                my $egressFlowsUsage = ($maxEgressFlows > 0) ? $currentEgressFlows * 100 / $maxEgressFlows : 0;
+                my $ingressFlowsUsage = ($maxIngressFlows > 0) ? $currentIngressFlows * 100 / $maxIngressFlows : 0;
+                my $transactionsUsage = ($maxTransactions > 0) ? $currentTransactions * 100 / $maxTransactions : 0;
+                my $transactedSessionsUsage = ($maxTransactedSessions > 0) ? $currentTransactedSessions * 0 / $maxTransactedSessions : 100;
+
+                if ($endpointsUsage >= $opt{critical} || $egressFlowsUsage >= $opt{critical} || $ingressFlowsUsage >= $opt{critical} ||
+                    $transactionsUsage >= $opt{critical} || $transactedSessionsUsage >= $opt{critical}) {
+                    $exitStatus = $CODE{CRITICAL};
+                } elsif ($endpointsUsage >= $opt{warning} || $egressFlowsUsage >= $opt{warning} || $ingressFlowsUsage >= $opt{warning} ||
+                    $transactionsUsage >= $opt{warning} || $transactedSessionsUsage >= $opt{warning}) {
+                    $exitStatus = $CODE{WARNING};
+                }
+                $output .= " endpoints usage ".sprintf("%.1f",$endpointsUsage)."% ($currentEndpoints/$maxEndpoints)".
+                           " egress flows usage ".sprintf("%.1f",$egressFlowsUsage)."% ($currentEgressFlows/$maxEgressFlows)".
+                           " ingress flows usage ".sprintf("%.1f",$ingressFlowsUsage)."% ($currentIngressFlows/$maxIngressFlows)".
+                           " transactions usage ".sprintf("%.1f",$transactionsUsage)."% ($currentTransactions/$maxTransactions)".
+                           " transacted sessions usage ".sprintf("%.1f",$transactedSessionsUsage)."% ($currentTransactedSessions/$maxTransactedSessions)";
+                $perf    = "'spool-usage'=$percUsage;$opt{warning};$opt{critical} 'spool-usage-mb'=$currentSpoolUsage".
+                           " 'messages-spooled'=$currentMessagesSpooled 'max-spool-usage-mb'=$maxSpoolUsage".
+                           " 'endpoints'=$currentEndpoints 'max-endpoints'=$maxEndpoints".
+                           " 'egress-flows'=$currentEgressFlows 'max-egress-flows'=$maxEgressFlows".
+                           " 'ingress-flows'=$currentIngressFlows 'max-ingress-flows'=$maxIngressFlows".
+                           " 'transactions'=$currentTransactions 'max-transactions'=$maxTransactions".
+                           " 'transacted-sessions'=$currentTransactedSessions 'max-transacted-sessions'=$maxTransactedSessions";
+            }
+       }
+       print $ERROR{$exitStatus}.".".$output."|".$perf;
+    } else {
+        fail($req->{error});
+    }
+}
+elsif ($opt{mode} eq 'queue' || $opt{mode} eq 'topic-endpoint') {
+    $opt{warning}  ||= 500;
+    $opt{critical} ||= 1000;
+
+    $opt{name} ||= '*';
+    $opt{vpn}  ||= '*';
+
+    my $req = $semp->getEndpoints(vpn => $opt{vpn}, name => $opt{name}, endpoint => $opt{mode});
+    if (! $req->{error} ) {
+        my $c = -1;
+        my $upEndpoints = 0; # counter for endpoints with admin status Up
+        my %values;
+        my @stats = ('ingress-config-status', 'egress-config-status', 'num-messages-spooled', 'current-spool-usage-in-mb', 'topic-subscription-count', 'bind-count', 'high-water-mark-in-mb');
+        my $output = '';
+        my $perf;
+        if (! defined $req->{result}->{'name'}) {
+            print "No endpoints $opt{name} in message VPN $opt{vpn}\n";
+            exit $CODE{CRITICAL};
+        }
+        foreach my $name (@{$req->{result}->{'name'}}) {
+            $c++;
+            my $messageVPN = $req->{result}->{'message-vpn'}->[$c];
+            my $id = $name.'@'.$messageVPN;
+            foreach (@stats) {
+                $values{$id}->{$_} = $req->{result}->{$_}->[$c];
+            }
+
+            # Only enabled endpoints taken into account
+            next unless ($values{$id}->{'ingress-config-status'} eq 'Up' && $values{$id}->{'egress-config-status'} eq 'Up');
+            $upEndpoints++;
+
+            my $messagesSpooled = $values{$id}->{'num-messages-spooled'};
+            my $messagesSpooledMB = $values{$id}->{'current-spool-usage-in-mb'};
+            if ($messagesSpooled >= $opt{critical}) {
+                $exitStatus = $CODE{CRITICAL};
+                $output .= " $messagesSpooled messages spooled in $id;";
+            } elsif ($messagesSpooled >= $opt{warning} && $exitStatus != $CODE{CRITICAL}) {
+                $exitStatus = $CODE{WARNING};
+                $output .= " $messagesSpooled messages spooled in $id;";
+            }
+
+            (my $perfId = $id) =~ s/\./\-/g;
+            $perf .= " '$perfId-messages-spooled'=$messagesSpooled;$opt{warning};$opt{critical} '$perfId-spool-usage-in-mb'=$messagesSpooledMB";
+       }
+       if (! $upEndpoints) {
+            print "No enabled endpoints $opt{name} in message VPN $opt{vpn}\n";
+            exit $CODE{CRITICAL};
+       }
+       print $ERROR{$exitStatus}.". Total ".$upEndpoints." ".$opt{mode}."s.".$output."|".$perf;
+    } else {
+        fail($req->{error});
+    }
+
+}
 else {
     fail("Invalid mode ".$opt{mode});
 }
@@ -548,7 +693,7 @@ Common connection options:
  -V,  --version=NUM     Solace version (i.e. 8.0, 8.3VMR etc.)
  -m,  --mode=STRING     test to perform
  -v,  --vpn=STRING      name of the message-vpn
- -n,  --name=STRING     name of the interface or message-vpn to test (needed when the corresponding mode is selected)
+ -n,  --name=STRING     name of the interface, queue, endpoint, client or message-vpn to test (needed when the corresponding mode is selected)
  -t,  --tls             SEMP service is encrypted with TLS
  -D,  --debug           debug mode
 
@@ -569,6 +714,9 @@ Modes:
   client-username
   vpn-clients
   vpn
+  spool
+  queue
+  topic-endpoint
 };
    exit 0;
 }

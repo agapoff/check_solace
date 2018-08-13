@@ -9,7 +9,7 @@ use warnings;
 use strict;
 
 use version;
-our $VERSION = qv('0.1');
+our $VERSION = qv('0.2');
 
 use Carp;
 use LWP::UserAgent;
@@ -20,9 +20,13 @@ use Data::Dumper;
 $ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
 
 our %entryIDs = ( 'message-vpn'     => 'vpn-name',
+                  'message-spool'   => 'vpn-name',
                   'client'          => 'name',
                   'client-username' => 'name',
+                  'queue'           => 'name',
+                  'topic-endpoint'  => 'name',
                   'storage-element' => 'pattern',
+                  'count'           => 'num-elements',
                   'interface'       => 'phy-interface' );
 
 sub new {
@@ -286,6 +290,45 @@ sub getVpnClientUsernameStats {
     }
 
     my $rpc = genRPC("show client-username ".$args{name}." message-vpn ".$args{vpn}." stats", $self->{version});
+    print $rpc if ($self->{debug});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
+sub getSpoolUsage {
+    my $self = shift;
+    my %args = @_;
+
+    unless ($args{vpn}) {
+        croak 'vpn parameter is required';
+    }
+
+    my $rpc = genRPC("show message-spool ".$args{vpn}, $self->{version});
+    print $rpc if ($self->{debug});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
+sub getEndpoints {
+    my $self = shift;
+    my %args = @_;
+
+    $args{type} ||= ''; # By default select both durable and non-durable endpoints
+
+    unless ($args{name}) {
+        croak 'name parameter is required';
+    }
+    unless ($args{vpn}) {
+        croak 'vpn parameter is required';
+    }
+    unless ($args{type} eq 'durable' || $args{type} eq 'non-durable' || $args{type} eq '') {
+        croak 'type parameter should be either durable or non-durable';
+    }
+    unless ($args{endpoint} eq 'queue' || $args{endpoint} eq 'topic-endpoint') {
+        croak 'endpoint parameter should be either queue or topic-endpoint';
+    }
+
+    my $rpc = genRPC("show ".$args{endpoint}." ".$args{name}." message-vpn ".$args{vpn}." ".$args{type}, $self->{version});
     print $rpc if ($self->{debug});
     my $req = sendRequest($self, $rpc);
     return $req;
