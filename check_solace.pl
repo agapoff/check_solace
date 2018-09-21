@@ -5,7 +5,7 @@
 #
 # Vitaly Agapov <v.agapov@quotix.com>
 # 2017/02/27
-# Last modified: 2018/08/13
+# Last modified: 2018/09/21
 ##########################
 
 use strict;
@@ -287,22 +287,26 @@ elsif ($opt{mode} eq 'client') {
 
     my $req = $semp->getVpnClientStats(name => $opt{name}, vpn => $opt{vpn});
     if (! $req->{error} ) {
-        my $name = $req->{result}->{'name'}->[0];
-        my $vpn = $req->{result}->{'message-vpn'}->[0];
-        my $ingressRate = $req->{result}->{'average-ingress-rate-per-minute'}->[0];
-        my $egressRate = $req->{result}->{'average-egress-rate-per-minute'}->[0];
-        my $ingressByteRate = $req->{result}->{'average-ingress-byte-rate-per-minute'}->[0];
-        my $egressByteRate = $req->{result}->{'average-egress-byte-rate-per-minute'}->[0];
-        my $ingressDiscards = $req->{result}->{'total-ingress-discards'}->[0];
-        my $egressDiscards = $req->{result}->{'total-egress-discards'}->[0];
-        my $dataMessagesReceived = $req->{result}->{'client-data-messages-received'}->[0];
-        my $dataMessagesSent = $req->{result}->{'client-data-messages-sent'}->[0];
-
-        if (! defined($name) ) {
+        my $count = scalar @{ $req->{result}->{'name'} };
+        if ($count < 1) {
             fail("Client not connected");
         }
+        my $name;
+        if ($count > 1) {
+            $name = "$count clients";
+        } else {
+            $name = $req->{result}->{'name'}->[0];
+        }
+        my $ingressRate = sum($req->{result}->{'average-ingress-rate-per-minute'});
+        my $egressRate = sum($req->{result}->{'average-egress-rate-per-minute'});
+        my $ingressByteRate = sum($req->{result}->{'average-ingress-byte-rate-per-minute'});
+        my $egressByteRate = sum($req->{result}->{'average-egress-byte-rate-per-minute'});
+        my $ingressDiscards = sum($req->{result}->{'total-ingress-discards'});
+        my $egressDiscards = sum($req->{result}->{'total-egress-discards'});
+        my $dataMessagesReceived = sum($req->{result}->{'client-data-messages-received'});
+        my $dataMessagesSent = sum($req->{result}->{'client-data-messages-sent'});
 
-        print $ERROR{$exitStatus}.". $name\@$vpn Rate $ingressRate/$egressRate msg/sec, ".
+        print $ERROR{$exitStatus}.". $name\@$opt{vpn} Rate $ingressRate/$egressRate msg/sec, ".
         "Discarded $ingressDiscards/$egressDiscards | ".
         "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
         "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards ".
@@ -673,6 +677,14 @@ sub getPlatformFromUA {
         return 'windows';
     }
     return 'other';
+}
+
+# Sum for arrayref
+sub sum {
+   my $arr = shift;
+   my $sum;
+   $sum += $_ for @{$arr};
+   return $sum;
 }
 
 sub help {
