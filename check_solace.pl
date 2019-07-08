@@ -5,7 +5,7 @@
 #
 # Vitaly Agapov <v.agapov@quotix.com>
 # 2017/02/27
-# Last modified: 2018/09/21
+# Last modified: 2019/07/08
 ##########################
 
 use strict;
@@ -16,7 +16,7 @@ use File::Basename qw/basename dirname/;
 use lib dirname(__FILE__);
 use Solace::SEMP;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 our %CODE=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
 our %ERROR=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
 
@@ -420,8 +420,11 @@ elsif ($opt{mode} eq 'client-username') {
                 $crit .= " $clientUsername\@$vpn usage $maxUsage%;";
             }
 
-            $output .= " $clientUsername\@$vpn clients $numClients/$maxConnections web $numClientsWeb/$maxConnectionsWeb".
-            " smf $numClientsSmf/$maxConnectionsSmf;";
+            if ($c <= 4) {
+                $output .= " $clientUsername\@$vpn clients $numClients/$maxConnections web $numClientsWeb/$maxConnectionsWeb".
+                " smf $numClientsSmf/$maxConnectionsSmf;";
+            }
+
             (my $perfUsername = $clientUsername) =~ s/\./\-/g;
             $perf .= " '$perfUsername-num-clients'=$numClients '$perfUsername-num-clients-web'=$numClientsWeb".
             " '$perfUsername-num-clients-smf'=$numClientsSmf";
@@ -430,6 +433,11 @@ elsif ($opt{mode} eq 'client-username') {
         #if (! defined($name) ) {
         #   fail("No username found");
         #}
+        $c++;
+        if ($c > 5) {
+            $output .= "...Total ".$c. " clients";
+        }
+        $perf .= " 'num-clients'=".$c;
 
         print $ERROR{$exitStatus} . '.' . $crit . $output . ' |' . $perf . "\n";
         exit $exitStatus;
