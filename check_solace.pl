@@ -597,6 +597,7 @@ elsif ($opt{mode} eq 'spool') {
             }
        }
        print $ERROR{$exitStatus}.".".$output."|".$perf;
+       exit $exitStatus;
     } else {
         fail($req->{error});
     }
@@ -650,6 +651,7 @@ elsif ($opt{mode} eq 'queue' || $opt{mode} eq 'topic-endpoint') {
             exit $CODE{CRITICAL};
        }
        print $ERROR{$exitStatus}.". Total ".$upEndpoints." ".$opt{mode}."s.".$output."|".$perf;
+       exit $exitStatus;
     } else {
         fail($req->{error});
     }
