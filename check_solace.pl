@@ -5,7 +5,7 @@
 #
 # Vitaly Agapov <v.agapov@quotix.com>
 # 2017/02/27
-# Last modified: 2019/07/08
+# Last modified: 2019/11/25
 ##########################
 
 use strict;
@@ -35,6 +35,7 @@ GetOptions(
     'port|p=s',
     'username|u=s',
     'password|P=s',
+    'type|y=s',
     'debug|D',
     'tls|t',
 );
@@ -318,13 +319,9 @@ elsif ($opt{mode} eq 'client') {
 }
 elsif ($opt{mode} eq 'vpn-clients') {
     if (! $opt{vpn} ) {
-        # print "Message-vpn not defined. Set --vpn=* to use all vpns\n";
-        # exit $CODE{CRITICAL};
         $opt{vpn} = '*';
     }
     if (! $opt{name} ) {
-        # print "Client name not defined. Set --name=* to count all clients\n";
-        # exit $CODE{CRITICAL};
         $opt{name} = '*';
     }
 
@@ -430,9 +427,6 @@ elsif ($opt{mode} eq 'client-username') {
             " '$perfUsername-num-clients-smf'=$numClientsSmf";
         }
 
-        #if (! defined($name) ) {
-        #   fail("No username found");
-        #}
         $c++;
         if ($c > 5) {
             $output .= "...Total ".$c. " clients";
@@ -596,7 +590,7 @@ elsif ($opt{mode} eq 'spool') {
                            " 'transacted-sessions'=$currentTransactedSessions 'max-transacted-sessions'=$maxTransactedSessions";
             }
        }
-       print $ERROR{$exitStatus}.".".$output."|".$perf;
+       print $ERROR{$exitStatus}.".".$output."|".$perf."\n";
        exit $exitStatus;
     } else {
         fail($req->{error});
@@ -609,7 +603,7 @@ elsif ($opt{mode} eq 'queue' || $opt{mode} eq 'topic-endpoint') {
     $opt{name} ||= '*';
     $opt{vpn}  ||= '*';
 
-    my $req = $semp->getEndpoints(vpn => $opt{vpn}, name => $opt{name}, endpoint => $opt{mode});
+    my $req = $semp->getEndpoints(vpn => $opt{vpn}, name => $opt{name}, endpoint => $opt{mode}, type => $opt{type});
     if (! $req->{error} ) {
         my $c = -1;
         my $upEndpoints = 0; # counter for endpoints with admin status Up
@@ -650,7 +644,7 @@ elsif ($opt{mode} eq 'queue' || $opt{mode} eq 'topic-endpoint') {
             print "No enabled endpoints $opt{name} in message VPN $opt{vpn}\n";
             exit $CODE{CRITICAL};
        }
-       print $ERROR{$exitStatus}.". Total ".$upEndpoints." ".$opt{mode}."s.".$output."|".$perf;
+       print $ERROR{$exitStatus}.". Total ".$upEndpoints." ".$opt{mode}."s.".$output."|".$perf."\n";
        exit $exitStatus;
     } else {
         fail($req->{error});
@@ -663,7 +657,7 @@ else {
 
 sub fail {
     my $text = shift;
-    print $text;
+    print $text."\n";
     exit $CODE{CRITICAL};
 }
 
@@ -701,7 +695,7 @@ sub help {
     my $me = basename($0);
     print qq{Usage: $me -H host -V version -m mode [ -p port ] [ -u username ]
                         [ -P password ] [ -v vpn ] [ -n name ] [ -t ] [ -D ]
-                        [ -w warning ] [ -c critical ]
+                        [ -w warning ] [ -c critical ] [ -y type ]
 
 Run checks against Solace Message Router using SEMP protocol.
 Returns with an exit code of 0 (success), 1 (warning), 2 (critical), or 3 (unknown)
@@ -716,6 +710,7 @@ Common connection options:
  -m,  --mode=STRING     test to perform
  -v,  --vpn=STRING      name of the message-vpn
  -n,  --name=STRING     name of the interface, queue, endpoint, client or message-vpn to test (needed when the corresponding mode is selected)
+ -y,  --type=STRING     type parameter for durable or non-durable queues and topic endpoints, if not specified it will get both
  -t,  --tls             SEMP service is encrypted with TLS
  -D,  --debug           debug mode
 
