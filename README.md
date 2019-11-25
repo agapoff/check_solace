@@ -12,7 +12,9 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
 ## Script usage
 
     Usage: check_solace.pl -H host -V version -m mode [ -p port ] [ -u username ] [ -P password ]
-       [ -n name ] [ -v vpn ] [ -t ] [ -D ] [ -w warning ] [ -c critical ] 
+       [ -n name ] [ -v vpn ] [ -t ] [ -D ] [ -w warning ] [ -c critical ]
+       [ -y type ]
+
     Returns with an exit code of 0 (success), 1 (warning), 2 (critical), or 3 (unknown)
     This is version 0.08.
     
@@ -25,6 +27,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
      -m,  --mode=STRING     test to perform
      -v,  --vpn=STRING      name of the message-vpn
      -n,  --name=STRING     name of the interface, queue, endpoint, client or message-vpn to test (needed when the corresponding mode is selected)
+     -y,  --type=STRING     type parameter for durable or non-durable queues and topic endpoints, if not specified it will get both
      -t,  --tls             SEMP service is encrypted with TLS
      -D,  --debug           debug mode
     
@@ -99,7 +102,7 @@ Check for message spool usage for one VPN (gives more verbose output and perfdat
     ./check_solace.pl -H <...> --password=<...> --version=8.3VMR --mode=spool --vpn=myvpn-PROD
     OK. myvpn-PROD spool usage 0.0% (0/1000 MB) endpoints usage 3.8% (38/1000) egress flows usage 3.8% (38/1000) ingress flows usage 0.2% (2/1000) transactions usage 0.0% (0/5000) transacted sessions usage 0.0% (0/1000)|'spool-usage'=0;50;95 'spool-usage-mb'=0 'messages-spooled'=0 'max-spool-usage-mb'=1000 'endpoints'=38 'max-endpoints'=1000 'egress-flows'=38 'max-egress-flows'=1000 'ingress-flows'=2 'max-ingress-flows'=1000 'transactions'=0 'max-transactions'=5000 'transacted-sessions'=0 'max-transacted-sessions'=1000
 
-Check for queues (or topic-endpoints with the same rules). Parameter *vpn* can be a template so all matching VPNs will be shown. Parameter *name* is optional, it defaults to * (all endpoints). Warning and Critical (default 500 and 1000) are the thresholds for maximum amount of spooled messages.
+Check for queues (or topic-endpoints with the same rules). Parameter *vpn* can be a template so all matching VPNs will be shown. Parameter *name* is optional, it defaults to * (all endpoints). Parameter *type* is optional, it defaults to both durable and non-durable. Warning and Critical (default 500 and 1000) are the thresholds for maximum amount of spooled messages.
 
     ./check_solace.pl -H <...> -p 8080 --password=<...> --version=8.3VMR --mode=queue --name=*MyQueue* --vpn=myvpn-PROD --warning=100 --critical=200
     OK. Total 3 queues.| 'Some/MyQueue/1@myvpn-PROD-messages-spooled'=0;500;1000 'Some/MyQueue/2@myvpn-PROD-spool-usage-in-mb'=0 'Some/MyQueue/3@myvpn-PROD-messages-spooled'=0;500;1000 'Some/MyQueue/1@myvpn-PROD-spool-usage-in-mb'=0 'Some/MyQueue/2@myvpn-PROD-messages-spooled'=0;500;1000 'Some/MyQueue/3@myvpn-PROD-spool-usage-in-mb'=0
