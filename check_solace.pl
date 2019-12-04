@@ -288,6 +288,9 @@ elsif ($opt{mode} eq 'client') {
 
     my $req = $semp->getVpnClientStats(name => $opt{name}, vpn => $opt{vpn});
     if (! $req->{error} ) {
+        if (! defined $req->{result}->{'name'}) {
+            fail("Client not connected");
+        }
         my $count = scalar @{ $req->{result}->{'name'} };
         if ($count < 1) {
             fail("Client not connected");
