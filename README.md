@@ -7,6 +7,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
  * Perl
  * LWP::UserAgent
  * perl-LWP-Protocol-https (if https is used)
+ * perl-XML-LibXML
  * MIME::Base64
 
 ## Script usage
