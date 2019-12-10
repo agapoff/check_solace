@@ -13,7 +13,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
 
     Usage: check_solace.pl -H host -V version -m mode [ -p port ] [ -u username ] [ -P password ]
        [ -n name ] [ -v vpn ] [ -t ] [ -D ] [ -w warning ] [ -c critical ]
-       [ -y type ]
+       [ -rw warning ] [ -rc critical ] [ -y type ]
 
     Returns with an exit code of 0 (success), 1 (warning), 2 (critical), or 3 (unknown)
     This is version 0.08.
@@ -34,6 +34,8 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
     Limit options:
       -w value, --warning=value   the warning threshold, range depends on the action
       -c value, --critical=value  the critical threshold, range depends on the action
+      -rw value, --rwarning=value   the warning threshold, specific for rates when another value is already present
+      -rc value, --rcritical=value  the critical threshold, specific for rates when another value is already present
 
     Modes:
       redundancy
@@ -66,6 +68,9 @@ Check message VPN quota usage and statistics:
 
     ./check_solace.pl -H <...> --port=8080 --password=<...> --version=7.2 --mode=vpn --name=<my_vpn> --warning=50 --critical=95
     OK. Subscriptions 16/500000, Connections 10/1000 | 'unique-subscriptions'=16 'subscriptions-usage'=0.00%;50;95 'connections'=10 'conn-usage'=0.01%;50;95 'conn-smf'=10 'conn-web'=0 'conn-mqtt'=0 'ingress-rate'=123 'egress-rate'=0 'ingress-byte-rate'=24439 'egress-byte-rate'=0 'ingress-discards'=51500040 'egress-discards'=19
+
+    ./check_solace.pl -H <...> --port=8080 --password=<...> --version=7.2 --mode=vpn --name=prod* --warning=50 --critical=95 --rwarning=10000 --rcritical=15000
+    CRITICAL prod_vpn0 Enabled: false, Operational: false, Status: Down;|'prod_vpn1-unique-subscriptions'=6 'prod_vpn1-subscriptions-usage'=0.00%;70;90 'prod_vpn1-connections'=1 'prod_vpn1-conn-usage'=0.00%;70;90 'prod_vpn1-conn-smf'=1 'prod_vpn1-conn-web'=0 'prod_vpn1-conn-mqtt'=0 'prod_vpn1-ingress-rate'=0;10000;15000 'prod_vpn1-egress-rate'=0;10000;15000 'prod_vpn1-ingress-byte-rate'=0 'prod_vpn1-egress-byte-rate'=0 'prod_vpn1-ingress-discards'=0 'prod_vpn1-egress-discards'=0 'prod_vpn1-spool-egress-discards'=0 'prod_vpn2-unique-subscriptions'=56 'prod_vpn2-subscriptions-usage'=0.00%;70;90 'prod_vpn2-connections'=51 'prod_vpn2-conn-usage'=0.01%;70;90 'prod_vpn2-conn-smf'=51 'prod_vpn2-conn-web'=0 'prod_vpn2-conn-mqtt'=0 'prod_vpn2-ingress-rate'=0;10000;15000 'prod_vpn2-egress-rate'=0;10000;15000 'prod_vpn2-ingress-byte-rate'=25 'prod_vpn2-egress-byte-rate'=25 'prod_vpn2-ingress-discards'=0 'prod_vpn2-egress-discards'=26 'prod_vpn2-spool-egress-discards'=26 'prod_vpn3-unique-subscriptions'=38 'prod_vpn3-subscriptions-usage'=0.00%;70;90 'prod_vpn3-connections'=29 'prod_vpn3-conn-usage'=0.00%;70;90 'prod_vpn3-conn-smf'=29 'prod_vpn3-conn-web'=0 'prod_vpn3-conn-mqtt'=0 'prod_vpn3-ingress-rate'=0;10000;15000 'prod_vpn3-egress-rate'=0;10000;15000 'prod_vpn3-ingress-byte-rate'=0 'prod_vpn3-egress-byte-rate'=0 'prod_vpn3-ingress-discards'=0 'prod_vpn3-egress-discards'=0 'prod_vpn3-spool-egress-discards'=0 'prod_vpn4-unique-subscriptions'=38 'prod_vpn4-subscriptions-usage'=0.00%;70;90 'prod_vpn4-connections'=33 'prod_vpn4-conn-usage'=0.00%;70;90 'prod_vpn4-conn-smf'=33 'prod_vpn4-conn-web'=0 'prod_vpn4-conn-mqtt'=0 'prod_vpn4-ingress-rate'=0;10000;15000 'prod_vpn4-egress-rate'=11;10000;15000 'prod_vpn4-ingress-byte-rate'=16 'prod_vpn4-egress-byte-rate'=6346 'prod_vpn4-ingress-discards'=0 'prod_vpn4-egress-discards'=228218881 'prod_vpn4-spool-egress-discards'=41464
 
 Check memory usage:
 

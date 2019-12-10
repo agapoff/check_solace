@@ -5,7 +5,7 @@
 #
 # Vitaly Agapov <v.agapov@quotix.com>
 # 2017/02/27
-# Last modified: 2019/11/25
+# Last modified: 2019/12/09
 ##########################
 
 use strict;
@@ -15,6 +15,7 @@ use Data::Dumper qw/Dumper/;
 use File::Basename qw/basename dirname/;
 use lib dirname(__FILE__);
 use Solace::SEMP;
+use XML::LibXML;
 
 our $VERSION = '0.09';
 our %CODE=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
@@ -27,6 +28,8 @@ GetOptions(
     'help|h',
     'warning|w=s',
     'critical|c=s',
+    'rwarning|rw=s',
+    'rcritical|rc=s',
     'version|V=s',
     'mode|m=s',
     'vpn|v=s',
@@ -446,6 +449,8 @@ elsif ($opt{mode} eq 'client-username') {
 elsif ($opt{mode} eq 'vpn') {
     $opt{warning} ||= 50;
     $opt{critical} ||= 95;
+    $opt{rwarning} ||= 10000;
+    $opt{rcritical} ||= 15000;
 
     $opt{vpn} ||= $opt{name};
 
@@ -456,53 +461,71 @@ elsif ($opt{mode} eq 'vpn') {
 
     my $req = $semp->getMessageVpnStats(name => $opt{vpn});
     if (! $req->{error} ) {
-        my $enabled = $req->{result}->{enabled}->[0];
-        my $operational = $req->{result}->{operational}->[0];
-        my $status = $req->{result}->{'local-status'}->[0];
-        my $uniqueSubscriptions = $req->{result}->{'unique-subscriptions'}->[0];
-        my $maxSubscriptions = $req->{result}->{'max-subscriptions'}->[0];
-        my $connections = $req->{result}->{'connections'}->[0];
-        my $maxConnections = $req->{result}->{'max-connections'}->[0];
-        my $connSMF = $req->{result}->{'connections-service-smf'}->[0];
-        my $connWEB = $req->{result}->{'connections-service-web'}->[0];
-        my $connMQTT = $req->{result}->{'connections-service-mqtt'}->[0];
-        my $ingressRate = $req->{result}->{'average-ingress-rate-per-minute'}->[0];
-        my $egressRate = $req->{result}->{'average-egress-rate-per-minute'}->[0];
-        my $ingressByteRate = $req->{result}->{'average-ingress-byte-rate-per-minute'}->[0];
-        my $egressByteRate = $req->{result}->{'average-egress-byte-rate-per-minute'}->[0];
-        my $ingressDiscards = $req->{result}->{'total-ingress-discards'}->[0];
-        my $egressDiscards = $req->{result}->{'total-egress-discards'}->[0];
+        my $output = '';
+        my $perf;
+        # Its easier to get enabled value in bulk using XPath
+        # In the former way we get the last value from the last enabled key
+        # <kerberos-auth>
+        #      <enabled>false</enabled>
+        my $dom = XML::LibXML->load_xml(string => $req->{raw});
 
-        if (! defined $enabled) {
-            print "Message VPN $opt{name} not known\n";
-            exit $CODE{CRITICAL};
-        }
+        # /rpc-reply/rpc/show/message-vpn/vpn
+        foreach my $vpn ($dom->findnodes('//vpn')) {
+            my $name =  $vpn->findvalue('./name');
+            my $enabled = $vpn->findvalue('./enabled');
+            my $operational = $vpn->findvalue('./operational');
+            my $status = $vpn->findvalue('./local-status');
+ 
+            if ($enabled eq 'true' && $operational eq 'true' && $status eq 'Up') {
+                my $uniqueSubscriptions =  $vpn->findvalue('./unique-subscriptions');
+                my $maxSubscriptions =  $vpn->findvalue('./max-subscriptions');
+                my $maxConnections =  $vpn->findvalue('./max-connections');
+                my $connSMF =  $vpn->findvalue('./connections-service-smf');
+                my $connWEB =  $vpn->findvalue('./connections-service-web');
+                my $connMQTT =  $vpn->findvalue('./connections-service-mqtt');
+                my $ingressByteRate =  $vpn->findvalue('./stats/average-ingress-byte-rate-per-minute');
+                my $egressByteRate =  $vpn->findvalue('./stats/average-egress-byte-rate-per-minute');
+                my $connections =  $vpn->findvalue('./connections');
+                my $ingressRate =  $vpn->findvalue('./stats/average-ingress-rate-per-minute');
+                my $egressRate =  $vpn->findvalue('./stats/average-egress-rate-per-minute');
+                my $ingressDiscards =  $vpn->findvalue('./stats/ingress-discards/total-ingress-discards');
+                my $egressDiscards =  $vpn->findvalue('./stats/egress-discards/total-egress-discards');
 
-        if ($enabled eq 'true' && $operational eq 'true' && $status eq 'Up') {
-            my $connUsage = 0;
-            if ($maxConnections > 0) {
-                $connUsage = sprintf("%.2f",$connections / $maxConnections);
-            }
-            my $subscrUsage = 0;
-            if ($maxSubscriptions > 0) {
-                $subscrUsage = sprintf("%.2f",$uniqueSubscriptions / $maxSubscriptions);
-            }
-            if ($connUsage >= $opt{critical} || $subscrUsage >= $opt{critical}) {
+                # Metric to monitor recommended by Solace Co.
+                my $spoolEgressDiscards =  $vpn->findvalue('./stats/egress-discards/msg-spool-egress-discards');
+                my $connUsage = 0;
+                if ($maxConnections > 0) {
+                    $connUsage = sprintf("%.2f",$connections / $maxConnections);
+                }
+                my $subscrUsage = 0;
+                if ($maxSubscriptions > 0) {
+                    $subscrUsage = sprintf("%.2f",$uniqueSubscriptions / $maxSubscriptions);
+                }
+                # Only issues will be shown in Output giving preference to perfdata
+                if ($connUsage >= $opt{critical} || $subscrUsage >= $opt{critical} || $ingressRate >= $opt{rcritical} || $egressRate >= $opt{rcritical}) {
+                    $exitStatus = $CODE{CRITICAL};
+                    $output .=  "$name-Subs $uniqueSubscriptions/$maxSubscriptions, $name-Conns $connections/$maxConnections ".
+                    "$name-Ingress-Rate $ingressRate;$opt{rwarning};$opt{rcritical}, $name-Egress-Rate $egressRate;$opt{rwarning};$opt{rcritical} ";
+                } elsif ($connUsage >= $opt{warning} || $subscrUsage >= $opt{warning} || $ingressRate >= $opt{rwarning} || $egressRate >= $opt{rwarning}) {
+                    $exitStatus = $CODE{WARNING};
+                    $output .=  "$name-Subs $uniqueSubscriptions/$maxSubscriptions, $name-Conns $connections/$maxConnections ".
+                    "$name-Ingress-Rate $ingressRate;$opt{rwarning};$opt{rcritical}, $name-Egress-Rate $egressRate;$opt{rwarning};$opt{rcritical} ";
+                }
+                $perf .=    "'$name-unique-subscriptions'=$uniqueSubscriptions ".
+                            "'$name-subscriptions-usage'=$subscrUsage%;$opt{warning};$opt{critical} '$name-connections'=$connections ".
+                            "'$name-conn-usage'=$connUsage%;$opt{warning};$opt{critical} ".
+                            "'$name-conn-smf'=$connSMF '$name-conn-web'=$connWEB '$name-conn-mqtt'=$connMQTT ".
+                            "'$name-ingress-rate'=$ingressRate;$opt{rwarning};$opt{rcritical} '$name-egress-rate'=$egressRate;$opt{rwarning};$opt{rcritical} ".
+                            "'$name-ingress-byte-rate'=$ingressByteRate '$name-egress-byte-rate'=$egressByteRate '$name-ingress-discards'=$ingressDiscards ".
+                            "'$name-egress-discards'=$egressDiscards '$name-spool-egress-discards'=$spoolEgressDiscards ";
+            } else {
+                # VPN with issues
                 $exitStatus = $CODE{CRITICAL};
-            } elsif ($connUsage >= $opt{warning} || $subscrUsage >= $opt{warning}) {
-                $exitStatus = $CODE{WARNING};
+                $output .= " $name Enabled: $enabled, Operational: $operational, Status: $status;";   
             }
-            print $ERROR{$exitStatus}.". Subscriptions $uniqueSubscriptions/$maxSubscriptions, ".
-            "Connections $connections/$maxConnections | 'unique-subscriptions'=$uniqueSubscriptions ".
-            "'subscriptions-usage'=$subscrUsage%;$opt{warning};$opt{critical} 'connections'=$connections ".
-            "'conn-usage'=$connUsage%;$opt{warning};$opt{critical} ".
-            "'conn-smf'=$connSMF 'conn-web'=$connWEB 'conn-mqtt'=$connMQTT ".
-            "'ingress-rate'=$ingressRate 'egress-rate'=$egressRate 'ingress-byte-rate'=$ingressByteRate ".
-            "'egress-byte-rate'=$egressByteRate 'ingress-discards'=$ingressDiscards 'egress-discards'=$egressDiscards\n";
-        } else {
-            print "CRITICAL. Enabled: $enabled, Operational: $operational, Status: $status\n";
-            exit $CODE{CRITICAL};
         }
+        print $ERROR{$exitStatus}." ".$output."|".$perf."\n";
+        exit $exitStatus;
     } else {
         fail($req->{error});
     }
@@ -522,8 +545,6 @@ elsif ($opt{mode} eq 'spool') {
     if (! $req->{error} ) {
         my $c = -1;
         my %values;
-#        my @mandatoryStats = ('current-spool-usage-mb', 'current-messages-spooled', 'maximum-spool-usage-mb');
-#        my @optionalStats = ('maximum-queues-and-topic-endpoints', 'current-queues-and-topic-endpoints', 'maximum-egress-flows', 'current-egress-flows', 'maximum-ingress-flows', 'current-ingress-flows', 'maximum-transactions', 'current-transactions', 'maximum-transacted-sessions', 'current-transacted-sessions');
         my @stats = ('current-spool-usage-mb', 'current-messages-spooled', 'maximum-spool-usage-mb', 'maximum-queues-and-topic-endpoints', 'current-queues-and-topic-endpoints', 'maximum-egress-flows', 'current-egress-flows', 'maximum-ingress-flows', 'current-ingress-flows', 'maximum-transactions', 'current-transactions', 'maximum-transacted-sessions', 'current-transacted-sessions');
         my $crit = '';
         my $output;
@@ -698,7 +719,8 @@ sub help {
     my $me = basename($0);
     print qq{Usage: $me -H host -V version -m mode [ -p port ] [ -u username ]
                         [ -P password ] [ -v vpn ] [ -n name ] [ -t ] [ -D ]
-                        [ -w warning ] [ -c critical ] [ -y type ]
+                        [ -w warning ] [ -c critical ] [ -rw rwarning ] [ -rc rcritical ]
+                        [ -y type ]
 
 Run checks against Solace Message Router using SEMP protocol.
 Returns with an exit code of 0 (success), 1 (warning), 2 (critical), or 3 (unknown)
@@ -720,6 +742,8 @@ Common connection options:
 Limit options:
   -w value, --warning=value   the warning threshold, range depends on the action
   -c value, --critical=value  the critical threshold, range depends on the action
+  -rw value, --rwarning=value   the warning threshold, specific for rates when another value is already present
+  -rc value, --rcritical=value  the critical threshold, specific for rates when another value is already present
 
 Modes:
   redundancy
