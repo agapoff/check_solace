@@ -118,7 +118,6 @@ sub handleXml {
     my $xml = shift;
     my %hash;
     while ($xml =~ /<([^<>]+)>([^<>]*)<\/\1>/g) {
-        #$hash{$1} = $2;
         push @{$hash{$1}}, $2;
     }
     return \%hash;
@@ -138,9 +137,6 @@ sub countChildren {
     return 0;
 }
 
-
-
-
 sub getMessageVpnStats {
     my $self = shift;
     my %args = @_;
@@ -156,15 +152,20 @@ sub getMessageVpnStats {
 
 sub getRedundancy {
     my $self = shift;
-
     my $rpc = genRPC("show redundancy", $self->{version});
+    my $req = sendRequest($self, $rpc);
+    return $req;
+}
+
+sub getHardware {
+    my $self = shift;
+    my $rpc = genRPC("show hardware details", $self->{version});
     my $req = sendRequest($self, $rpc);
     return $req;
 }
 
 sub getConfigSync {
     my $self = shift;
-
     my $rpc = genRPC("show config-sync", $self->{version});
     my $req = sendRequest($self, $rpc);
     return $req;
@@ -172,7 +173,6 @@ sub getConfigSync {
 
 sub getAlarm {
     my $self = shift;
-
     my $rpc = genRPC("show alarm", $self->{version});
     my $req = sendRequest($self, $rpc);
     if ($req->{error}) {
@@ -186,7 +186,6 @@ sub getAlarm {
 
 sub getRaid {
     my $self = shift;
-    #$self->{debug} = 1;
     my $rpc = genRPC("show disk", $self->{version});
     my $req = sendRequest($self, $rpc);
     return $req;
@@ -277,7 +276,6 @@ sub getVpnClientDetail {
     return $req;
 }
 
-
 sub getVpnClientUsernameStats {
     my $self = shift;
     my %args = @_;
@@ -333,6 +331,5 @@ sub getEndpoints {
     my $req = sendRequest($self, $rpc);
     return $req;
 }
-
 
 1;
