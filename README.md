@@ -14,10 +14,10 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
 
     Usage: check_solace.pl -H host -V version -m mode [ -p port ] [ -u username ] [ -P password ]
        [ -n name ] [ -v vpn ] [ -t ] [ -D ] [ -w warning ] [ -c critical ]
-       [ -rw warning ] [ -rc critical ] [ -y type ]
+       [ -rw warning ] [ -rc critical ] [ -y type ] [ -a ] [ -b ]
 
     Returns with an exit code of 0 (success), 1 (warning), 2 (critical), or 3 (unknown)
-    This is version 0.08.
+    This is version 0.09.
     
     Common connection options:
      -H,  --host=NAME       hostname to connect to
@@ -29,6 +29,8 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
      -v,  --vpn=STRING      name of the message-vpn
      -n,  --name=STRING     name of the interface, queue, endpoint, client or message-vpn to test (needed when the corresponding mode is selected)
      -y,  --type=STRING     type parameter for durable or non-durable queues and topic endpoints, if not specified it will get both
+     -a,  --checkadb        choose this option to monitor Hardware ADB (works with the hardware mode)
+     -b,  --checkhba        choose this option to monitor Hardware HBA (works with the hardware mode)
      -t,  --tls             SEMP service is encrypted with TLS
      -D,  --debug           debug mode
     
@@ -44,6 +46,7 @@ Nagios-style checks against Solace Message Routers using SEMPv1 protocol. Design
       alarm (deprectaed after 7.2)
       raid
       disk
+      hardware
       memory
       interface
       clients
@@ -82,6 +85,11 @@ Check redundancy (applicable for hardware appliances, not VMRs):
 
     ./check_solace.pl -H <...> --password=<...> --version=7.2 --mode=redundancy
     OK. Config: Enabled, Status: Up, Mode: Active/Active, Mate: sol02
+
+Check hardware. Warning is the number of Power Supplies that are operational:
+
+    ./check_solace.pl -H <...> --port=8080 --password=<...>  --version=7.2 --mode=hardware -a -b -w 2 -t
+    OK: Power (Operational Supplies: 2) ADB (Operational State: true, Power Module State: Ok, Mate Link Port 1: Ok, Mate Link Port 2: Ok, Fatal Errors: 0, Flash Card State: Ready) HBA (Fiber Channel 1: Online, Fiber Channel 2: Online, LUN: Ready)
 
 Check if client is connected and get some stats:
 

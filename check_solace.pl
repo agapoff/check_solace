@@ -5,7 +5,7 @@
 #
 # Vitaly Agapov <v.agapov@quotix.com>
 # 2017/02/27
-# Last modified: 2019/12/09
+# Last modified: 2019/12/16
 ##########################
 
 use strict;
@@ -39,6 +39,8 @@ GetOptions(
     'username|u=s',
     'password|P=s',
     'type|y=s',
+    'checkadb|a',
+    'checkhba|b',
     'debug|D',
     'tls|t',
 );
@@ -61,6 +63,107 @@ if ($opt{mode} eq 'redundancy') {
         }
         print $ERROR{$exitStatus}.". Config: $configStatus, Status: $redundancyStatus, Mode: $redundancyMode, Mate: $mate\n";
         exit $exitStatus;
+    } else {
+        fail($req->{error});
+    }
+}
+elsif ($opt{mode} eq 'hardware') {
+    # Got the necessary monitoring information from an old Solace plugin
+    # Only adjusted everything to work with this plugin
+    my $req = $semp->getHardware;
+    if (! $req->{error} ) {
+        $opt{warning} ||= 2;
+        my $dom = XML::LibXML->load_xml(string => $req->{raw});
+        my @output;
+        my @exitCodes;
+        my $matelinkCount = 0;
+        my $fiberChannelCount = 0;
+
+        # Check Power Supplies always
+        my $powerSupplies = $dom->findvalue("/rpc-reply/rpc/show/hardware/power-redundancy/operational-power-supplies");
+        # Specify your warning threshold for this, default is 2
+        if ($powerSupplies < $opt{warning}) {
+            $exitStatus = $CODE{WARNING};
+            push @exitCodes,$exitStatus;
+        }
+        my $powerOutput = sprintf("Power (Operational Supplies: %s)",$powerSupplies);
+        push @output,$powerOutput;
+
+        # Check the Assured Delivery Blade (ADB)
+        if (defined $opt{checkadb}){
+            # Check the Operational Status
+            my $ADBOperational = $dom->findvalue("/rpc-reply/rpc/show/hardware/fabric/slot/card-type[text()='Assured Delivery Blade']/../operational-state-up");
+            if($ADBOperational ne "true"){
+                $exitStatus = $CODE{CRITICAL};
+                push @exitCodes,$exitStatus;
+            }
+            # Check the Mate Link 1 state
+            my $mateLink1 = $dom->findvalue("/rpc-reply/rpc/show/hardware/fabric/slot/card-type[text()='Assured Delivery Blade']/../mate-link-1-state");
+            if($mateLink1 eq "Ok"){
+	            $matelinkCount++;
+            }
+            # Check the Mate Link 2 state
+            my $mateLink2 = $dom->findvalue("/rpc-reply/rpc/show/hardware/fabric/slot/card-type[text()='Assured Delivery Blade']/../mate-link-2-state");
+            if($mateLink2 eq "Ok"){
+	            $matelinkCount++;
+            }
+            $exitStatus=$CODE{CRITICAL}-$matelinkCount;
+            push @exitCodes,$exitStatus;
+            # Check the Power Module State
+            my $powerModule = $dom->findvalue("/rpc-reply/rpc/show/hardware/fabric/slot/card-type[text()='Assured Delivery Blade']/../power-module-state");
+            if($powerModule ne "Ok"){
+	            $exitStatus = $CODE{CRITICAL};
+                push @exitCodes,$exitStatus;
+            }
+            # Check for any Fatal Errors
+            my $fatalErrors = $dom->findvalue("/rpc-reply/rpc/show/hardware/fabric/slot/card-type[text()='Assured Delivery Blade']/../fatal-errors");
+            if($fatalErrors > 0){
+	            $exitStatus = $CODE{CRITICAL};
+                push @exitCodes,$exitStatus;
+            }
+            # Check the Flash state
+            my $flashState = $dom->findvalue("/rpc-reply/rpc/show/hardware/fabric/slot/card-type[text()='Assured Delivery Blade']/../flash/state");
+            if($flashState ne "Ready"){
+	            $exitStatus = $CODE{CRITICAL};
+                push @exitCodes,$exitStatus;
+            }
+            my $outputADB = sprintf("ADB (Operational State: %s, Power Module State: %s, Mate Link Port 1: %s, Mate Link Port 2: %s, Fatal Errors: %s, Flash Card State: %s)",$ADBOperational,$powerModule,$mateLink1,$mateLink2,$fatalErrors,$flashState);
+            push @output,$outputADB;
+        }
+
+        # Check Host Bus Adapter (HBA)
+        if(defined $opt{checkhba}){
+            # Check Fiber Channel port 1
+            my $fiberChannel1 = $dom->findvalue("/rpc-reply/rpc/show/hardware/fabric/slot/fibre-channel/number[text()='1']/../operational-state");
+            if($fiberChannel1 eq "Online"){
+                $fiberChannelCount++;
+            }
+
+            # Check Fiber Channel port 2
+            my $fiberChannel2 = $dom->findvalue("/rpc-reply/rpc/show/hardware/fabric/slot/fibre-channel/number[text()='2']/../operational-state");
+            if($fiberChannel2 eq "Online"){
+                $fiberChannelCount++;
+            }
+            $exitStatus=$CODE{CRITICAL}-$fiberChannelCount;
+            push @exitCodes,$exitStatus;
+
+            # Check External Disk (LUN)	
+            my $lun = $dom->findvalue("/rpc-reply/rpc/show/hardware/fabric/slot/external-disk-lun/state");
+
+            # Lun give different outputs after solace firmware upgrade. 
+            # Just quick hack to fix monitoring until all appliances is upgraded.
+            if($lun ne 'Ready' && $lun ne 'ReadyReady' && $lun ne 'ReadyReadyReady') {
+                $exitStatus = $CODE{CRITICAL};
+                push @exitCodes,$exitStatus;
+            }
+            my $outputHBA = sprintf("HBA (Fiber Channel 1: %s, Fiber Channel 2: %s, LUN: %s)",$fiberChannel1,$fiberChannel2,$lun);
+            push @output,$outputHBA;
+        }
+        # Juggle exitcodes ordered by criticality
+        @exitCodes = reverse sort { $a <=> $b } @exitCodes; 
+        $exitStatus = $exitCodes[0];
+        print $ERROR{$exitStatus}.": ".join(" ",@output)."\n";
+        exit $exitStatus;    
     } else {
         fail($req->{error});
     }
@@ -445,7 +548,6 @@ elsif ($opt{mode} eq 'client-username') {
         fail($req->{error});
     }
 }
-
 elsif ($opt{mode} eq 'vpn') {
     $opt{warning} ||= 50;
     $opt{critical} ||= 95;
@@ -720,7 +822,7 @@ sub help {
     print qq{Usage: $me -H host -V version -m mode [ -p port ] [ -u username ]
                         [ -P password ] [ -v vpn ] [ -n name ] [ -t ] [ -D ]
                         [ -w warning ] [ -c critical ] [ -rw rwarning ] [ -rc rcritical ]
-                        [ -y type ]
+                        [ -y type ] [ -a ] [ -b ]
 
 Run checks against Solace Message Router using SEMP protocol.
 Returns with an exit code of 0 (success), 1 (warning), 2 (critical), or 3 (unknown)
@@ -736,6 +838,8 @@ Common connection options:
  -v,  --vpn=STRING      name of the message-vpn
  -n,  --name=STRING     name of the interface, queue, endpoint, client or message-vpn to test (needed when the corresponding mode is selected)
  -y,  --type=STRING     type parameter for durable or non-durable queues and topic endpoints, if not specified it will get both
+ -a,  --checkadb        choose this option to monitor Hardware ADB (works with the hardware mode)
+ -b,  --checkhba        choose this option to monitor Hardware HBA (works with the hardware mode)
  -t,  --tls             SEMP service is encrypted with TLS
  -D,  --debug           debug mode
 
@@ -751,6 +855,7 @@ Modes:
   alarm (deprecated after 7.2)
   raid
   disk
+  hardware
   memory
   interface
   clients
@@ -762,5 +867,5 @@ Modes:
   queue
   topic-endpoint
 };
-   exit 0;
+  exit 0;
 }
