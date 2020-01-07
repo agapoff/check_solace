@@ -490,7 +490,7 @@ elsif ($opt{mode} eq 'client-username') {
         my @stats = ('message-vpn', 'num-clients', 'num-clients-service-web', 'num-clients-service-smf', 'num-endpoints',
             'max-connections', 'max-connections-service-web', 'max-connections-service-smf', 'max-endpoints');
         my $crit = '';
-        my $output;
+        my $output = '';
         my $perf;
 
         foreach my $clientUsername (@{$req->{result}->{'client-username'}}) {
