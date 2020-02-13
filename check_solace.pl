@@ -17,7 +17,7 @@ use lib dirname(__FILE__);
 use Solace::SEMP;
 use XML::LibXML;
 
-our $VERSION = '0.09';
+our $VERSION = '1.0';
 our %CODE=( OK => 0, WARNING => 1, CRITICAL => 2, UNKNOWN => 3 );
 our %ERROR=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
 

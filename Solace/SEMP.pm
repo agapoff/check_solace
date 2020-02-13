@@ -101,7 +101,7 @@ sub sendRequest {
         print $response->decoded_content."\n" if ($self->{debug});
         my $error = 0;
         my $result = handleXml($response->decoded_content);
-        if (defined $result->{'parse-error'}) {
+        if (defined $result->{'parse-error'} && $result->{'parse-error'}->[0] =~ /\D/) {
             $error = $result->{'parse-error'}->[0];
         }
         my %ret = ( "error" => $error, "result" => handleXml($response->decoded_content), "raw" => $response->decoded_content );
