@@ -49,7 +49,7 @@ sub new {
 
     my $basic =  encode_base64($args{username}.":".$args{password});
     my $ua = $args{ua} || LWP::UserAgent->new;
-    $ua->timeout(2);
+    $ua->timeout(5);
 
     my $schema = ($args{tls})?'https':'http';
 
