@@ -540,7 +540,11 @@ elsif ($opt{mode} eq 'client-username') {
         if ($c > 5) {
             $output .= "...Total ".$c. " clients";
         }
-        $perf .= " 'num-clients'=".$c;
+        if ($c > 20) { # Drop perfdata if there are too many client usernames
+            $perf = " 'num-clients'=".$c;
+        } else {
+            $perf .= " 'num-clients'=".$c;
+        }
 
         print $ERROR{$exitStatus} . '.' . $crit . $output . ' |' . $perf . "\n";
         exit $exitStatus;
